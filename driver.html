@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CityBus Driver — Trip Control</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --primary: #1e40af;
+      --primary-hover: #1d4ed8;
+      --primary-light: #eff6ff;
+      --success: #16a34a;
+      --success-bg: #f0fdf4;
+      --warning: #d97706;
+      --warning-bg: #fffbeb;
+      --danger: #dc2626;
+      --danger-bg: #fef2f2;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --border-focus: #93c5fd;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-full: 9999px;
+      --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.05);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.05);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: 'Inter', 'Noto Sans Bengali', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── Screens ───────────────────────────────────── */
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      transition: transform .28s cubic-bezier(.4,0,.2,1), opacity .28s ease;
+      overflow: hidden;
+    }
+    .screen.hidden { transform: translateX(100%); opacity: 0; pointer-events: none; }
+
+    /* ─── Header ─────────────────────────────────────── */
+    .app-header {
+      background: var(--primary);
+      color: #fff;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+      min-height: 60px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,.1);
+    }
+    .app-header h1 { font-size: 1.125rem; font-weight: 700; flex: 1; }
+    .app-header .sub { font-size: .75rem; opacity: .85; }
+
+    /* ─── Login Screen ──────────────────────────────── */
+    #screen-login { overflow-y: auto; }
+
+    .login-hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #0284c7 100%);
+      color: #fff;
+      padding: 40px 20px 48px;
+      text-align: center;
+    }
+    .login-hero .icon { font-size: 3rem; margin-bottom: 8px; display: block; }
+    .login-hero h2 { font-size: 1.5rem; font-weight: 800; }
+    .login-hero p { font-size: .875rem; opacity: .85; margin-top: 4px; }
+
+    .login-card-wrapper {
+      max-width: 440px;
+      margin: -24px auto 0;
+      padding: 0 16px;
+    }
+    .login-card {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      padding: 28px 20px;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border);
+    }
+    .field-label {
+      font-size: .8125rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: block;
+    }
+    .field-label .bn { font-weight: 400; color: #94a3b8; font-size: .75rem; }
+
+    .input-box {
+      width: 100%;
+      padding: 14px 16px;
+      font-size: 1rem;
+      font-weight: 500;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      background: #f8fafc;
+      font-family: inherit;
+      color: var(--text-main);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .input-box:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(30,64,175,.12);
+      background: #fff;
+    }
+    .input-box::placeholder { color: #cbd5e1; font-weight: 400; }
+
+    .btn-primary {
+      width: 100%;
+      margin-top: 20px;
+      padding: 16px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 52px;
+      box-shadow: 0 4px 12px rgba(30,64,175,.25);
+      transition: background .15s;
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
+
+    .login-hint {
+      margin-top: 16px;
+      text-align: center;
+      font-size: .8125rem;
+      color: var(--text-muted);
+    }
+
+    /* ─── Trip Screen ────────────────────────────────── */
+    #screen-trip { overflow-y: auto; }
+
+    .bus-info-card {
+      max-width: 460px;
+      margin: 16px auto 0;
+      padding: 0 16px;
+    }
+    .bus-info-inner {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .bus-info-header {
+      background: var(--primary);
+      color: #fff;
+      padding: 18px 20px;
+    }
+    .bus-info-header .bus-num {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -.02em;
+    }
+    .bus-info-header .route-en { font-size: 1rem; font-weight: 700; margin-top: 4px; color: #f8fafc; }
+    .bus-info-header .route-bn { font-size: .8125rem; opacity: .85; }
+
+    .bus-info-body { padding: 16px 20px; }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px dashed var(--border);
+      font-size: .875rem;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-row .label { color: var(--text-muted); font-weight: 500; }
+    .info-row .value { font-weight: 700; color: var(--text-main); text-align: right; }
+
+    /* Status card */
+    .status-card {
+      max-width: 460px;
+      margin: 12px auto 0;
+      padding: 0 16px;
+    }
+    .status-inner {
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      text-align: center;
+      font-weight: 600;
+      font-size: .9375rem;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+    .status-inner.idle { background: var(--warning-bg); color: var(--warning); border-color: #fde68a; }
+    .status-inner.sharing { background: var(--success-bg); color: var(--success); border-color: #bbf7d0; }
+
+    .status-inner .status-icon { font-size: 1.75rem; margin-bottom: 4px; display: block; }
+    .status-inner .status-label { font-size: 1.05rem; font-weight: 700; }
+    .status-inner .status-sub { font-size: .8125rem; font-weight: 400; opacity: .85; margin-top: 2px; }
+
+    /* GPS info */
+    .gps-card {
+      max-width: 460px;
+      margin: 12px auto 0;
+      padding: 0 16px;
+    }
+    .gps-inner {
+      background: var(--card);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      font-size: .8125rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: var(--shadow-sm);
+    }
+    .gps-inner .gps-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #94a3b8;
+      flex-shrink: 0;
+    }
+    .gps-inner .gps-dot.active {
+      background: var(--success);
+      animation: blink 1.2s infinite;
+    }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+    /* Stop Marker Section (Driver Feature 1) */
+    .stops-section {
+      max-width: 460px;
+      margin: 16px auto 0;
+      padding: 0 16px;
+    }
+    .stops-card {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+    .stops-card-title {
+      font-size: .875rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .stop-list-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      margin-bottom: 6px;
+      border: 1px solid var(--border);
+      background: #f8fafc;
+    }
+    .stop-list-item.reached {
+      background: var(--success-bg);
+      border-color: #bbf7d0;
+    }
+    .stop-list-item.current-target {
+      background: var(--primary-light);
+      border-color: var(--border-focus);
+    }
+    .stop-name-title { font-size: .9rem; font-weight: 700; }
+    .stop-name-sub { font-size: .75rem; color: var(--text-muted); }
+    .btn-mark-stop {
+      padding: 6px 12px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-full);
+      font-size: .78rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-mark-stop.done {
+      background: var(--success);
+      cursor: default;
+    }
+
+    /* Buttons */
+    .action-buttons {
+      max-width: 460px;
+      margin: 20px auto 12px;
+      padding: 0 16px;
+      display: flex;
+      gap: 12px;
+    }
+    .btn-start {
+      flex: 1;
+      padding: 16px;
+      background: var(--success);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 52px;
+      box-shadow: 0 4px 12px rgba(22,163,74,.3);
+    }
+    .btn-stop {
+      flex: 1;
+      padding: 16px;
+      background: var(--danger);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 52px;
+      box-shadow: 0 4px 12px rgba(220,38,38,.25);
+    }
+
+    .btn-logout {
+      max-width: 460px;
+      margin: 8px auto 32px;
+      padding: 0 16px;
+    }
+    .btn-logout button {
+      width: 100%;
+      padding: 12px;
+      background: var(--danger-bg);
+      color: var(--danger);
+      border: 1px solid #fecaca;
+      border-radius: var(--radius-md);
+      font-size: .875rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<!-- SCREEN 1: LOGIN -->
+<div id="screen-login" class="screen">
+  <div class="login-hero">
+    <span class="icon">🚌</span>
+    <h2>Driver Panel</h2>
+    <p>Driver Trip & Route Control / ড্রাইভার কন্ট্রোল</p>
+  </div>
+
+  <div class="login-card-wrapper">
+    <div class="login-card">
+      <label class="field-label" for="input-code">
+        Driver Code <span class="bn">/ ড্রাইভার কোড</span>
+      </label>
+      <input
+        class="input-box"
+        id="input-code"
+        type="text"
+        placeholder="Enter driver code (e.g. DRV-101)"
+        value="DRV-101"
+        autocomplete="off"
+      />
+
+      <button class="btn-primary" onclick="handleLogin()">
+        🚀 Login & Load Route / লগইন ও রুট লোড করুন
+      </button>
+
+      <div class="login-hint">
+        Enter your Driver Code to see assigned route & update stops live.<br>
+        <span style="color:#94a3b8;">কোড দিন ও আপনার বাসের রুট ও স্টপ কন্ট্রোল করুন।</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 2: TRIP CONTROL -->
+<div id="screen-trip" class="screen hidden">
+  <div class="app-header">
+    <h1>Driver Console <span class="sub">/ ড্রাইভার কন্ট্রোল</span></h1>
+  </div>
+
+  <!-- Assigned Bus & Route Info -->
+  <div class="bus-info-card">
+    <div class="bus-info-inner">
+      <div class="bus-info-header">
+        <div class="bus-num" id="trip-bus-num">JGM-01</div>
+        <div class="route-en" id="trip-route-en">Jhargram – Kharagpur Express</div>
+        <div class="route-bn" id="trip-route-bn">ঝাড়গ্রাম – খড়গপুর এক্সপ্রেস</div>
+      </div>
+      <div class="bus-info-body">
+        <div class="info-row">
+          <span class="label">Assigned Route / রুট</span>
+          <span class="value" id="trip-route-full" style="color:var(--primary);">Jhargram to Kharagpur</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Operator / অপারেটর</span>
+          <span class="value" id="trip-operator">JGM Paribahan</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Driver Code / কোড</span>
+          <span class="value" id="trip-driver-code">DRV-101</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Status Card -->
+  <div class="status-card">
+    <div class="status-inner idle" id="trip-status-box">
+      <span class="status-icon">⏸</span>
+      <div class="status-label" id="trip-status-label">Trip Not Started</div>
+      <div class="status-sub">Tap "Start Trip" to begin location & stop sharing</div>
+    </div>
+  </div>
+
+  <!-- Stop Marking Section (Driver Feature 1) -->
+  <div class="stops-section" id="stops-section" style="display:none;">
+    <div class="stops-card">
+      <div class="stops-card-title">
+        <span>📍 Route Stops Progress <small style="font-weight:400;color:var(--text-muted);">/ স্টপ মার্ক করুন</small></span>
+        <span style="font-size:0.75rem;color:var(--primary);" id="current-stop-status">Stop 1 of 5</span>
+      </div>
+      <div id="driver-stops-list">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- GPS Status Card -->
+  <div class="gps-card">
+    <div class="gps-inner">
+      <span class="gps-dot" id="gps-dot"></span>
+      <div>
+        <div id="gps-text" style="font-weight:600;color:var(--text-main);">GPS: Not Active</div>
+        <div id="gps-coords" style="margin-top:2px;">Waiting for trip start...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="action-buttons">
+    <button class="btn-start" id="btn-start" onclick="startTrip()">
+      ▶ Start Trip
+    </button>
+    <button class="btn-stop" id="btn-stop" onclick="stopTrip()" style="display:none;">
+      ⏹ End Trip
+    </button>
+  </div>
+
+  <!-- Logout -->
+  <div class="btn-logout">
+    <button onclick="handleLogout()">
+      🚪 Logout / লগআউট
+    </button>
+  </div>
+</div>
+
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+const SUPABASE_URL = 'https://fyenwpoiyibkhmsooiec.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5ZW53cG9peWlia2htc29vaWVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2NjA5NzAsImV4cCI6MjEwMjIzNjk3MH0.Eg5ZOmHcNGmyFhRt0cBAgNb-VtQvdAqXkI6l0tsESVk';
+
+let supabaseClient = null;
+try {
+  if (window.supabase) {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('Supabase client initialized in Driver Console.');
+  }
+} catch (e) {
+  console.warn('Supabase client init error:', e);
+}
+
+// Multi-channel cross-tab broadcast for instant local testing
+let busBroadcastChannel = null;
+try {
+  if (window.BroadcastChannel) {
+    busBroadcastChannel = new BroadcastChannel('citybus_live_channel');
+  }
+} catch(e){}
+
+const ROUTE_STOPS_FALLBACK = {
+  'R-101': [
+    { key: 'jhargram', en: 'Jhargram Bus Stand', bn: 'ঝাড়গ্রাম বাসস্ট্যান্ড', lat: 22.4586, lng: 86.9931, dist: '0 km' },
+    { key: 'lalgarh', en: 'Lalgarh Stop', bn: 'লালগড় স্টপ', lat: 22.5000, lng: 86.9400, dist: '8 km' },
+    { key: 'binpur', en: 'Binpur Junction', bn: 'বিনপুর জংশন', lat: 22.4800, lng: 87.0700, dist: '15 km' },
+    { key: 'sankrail', en: 'Sankrail Cross', bn: 'শাঁকরাইল মোড়', lat: 22.3900, lng: 87.2600, dist: '32 km' },
+    { key: 'kharagpur', en: 'Kharagpur Central', bn: 'খড়গপুর সেন্ট্রাল', lat: 22.3302, lng: 87.3237, dist: '56 km' }
+  ]
+};
+
+let driverData = null;
+let routeStops = [];
+let currentStopIndex = 0;
+let gpsWatchId = null;
+let uploadInterval = null;
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+async function handleLogin() {
+  const code = document.getElementById('input-code').value.trim().toUpperCase();
+  if (!code) {
+    alert('Please enter your Driver Code.');
+    return;
+  }
+
+  // Fallback DRV-101 data
+  const fallback = {
+    bus_id: '33333333-3333-3333-3333-333333333333',
+    bus_number: 'JGM-01',
+    route_code: 'R-101',
+    route_name_en: 'Jhargram – Kharagpur Express',
+    route_name_bn: 'ঝাড়গ্রাম – খড়গপুর এক্সপ্রেস',
+    operator_name: 'JGM Paribahan Services',
+    driver_code: code,
+    trip_status: 'not_started',
+    latestLat: 22.4586,
+    latestLng: 86.9931
+  };
+
+  if (!supabaseClient) {
+    driverData = fallback;
+    routeStops = ROUTE_STOPS_FALLBACK['R-101'];
+    renderTripScreen();
+    showScreen('screen-trip');
+    return;
+  }
+
+  try {
+    const { data: buses, error: busErr } = await supabaseClient
+      .from('buses')
+      .select('id, bus_number, route_id, operator_id, driver_code, status')
+      .eq('driver_code', code)
+      .limit(1);
+
+    if (busErr) {
+      console.warn('Supabase query error on buses:', busErr);
+    }
+
+    if (!buses || buses.length === 0) {
+      // Use fallback if test code or offline
+      if (code === 'DRV-101' || code === 'DRV-102') {
+        driverData = fallback;
+        routeStops = ROUTE_STOPS_FALLBACK['R-101'];
+        renderTripScreen();
+        showScreen('screen-trip');
+        return;
+      }
+      alert('Driver Code not found in database.');
+      return;
+    }
+
+    const bus = buses[0];
+
+    // Fetch Route & Stops
+    const { data: routes } = await supabaseClient.from('routes').select('*').eq('id', bus.route_id).limit(1);
+    const { data: ops }    = await supabaseClient.from('operators').select('*').eq('id', bus.operator_id).limit(1);
+    const { data: stops }  = await supabaseClient.from('stops').select('*').eq('route_id', bus.route_id).order('sequence_no');
+
+    const route = routes && routes[0] ? routes[0] : null;
+    const op = ops && ops[0] ? ops[0] : null;
+
+    driverData = {
+      bus_id: bus.id,
+      bus_number: bus.bus_number,
+      route_code: route ? route.route_code : 'R-101',
+      route_name_en: route ? route.route_name : 'Jhargram – Kharagpur Express',
+      route_name_bn: route ? route.route_name : 'ঝাড়গ্রাম – খড়গপুর এক্সপ্রেস',
+      operator_name: op ? op.name : 'JGM Paribahan',
+      driver_code: bus.driver_code,
+      trip_status: 'not_started',
+      latestLat: stops && stops.length > 0 ? Number(stops[0].lat) : 22.4586,
+      latestLng: stops && stops.length > 0 ? Number(stops[0].lng) : 86.9931
+    };
+
+    if (stops && stops.length > 0) {
+      routeStops = stops.map(s => ({
+        key: s.stop_name.toLowerCase().replace(/\s+/g, ''),
+        en: s.stop_name,
+        bn: s.stop_name,
+        lat: Number(s.lat),
+        lng: Number(s.lng),
+        dist: `${s.distance_km} km`
+      }));
+    } else {
+      routeStops = ROUTE_STOPS_FALLBACK['R-101'];
+    }
+
+    renderTripScreen();
+    showScreen('screen-trip');
+
+  } catch (err) {
+    console.warn('Login exception:', err);
+    driverData = fallback;
+    routeStops = ROUTE_STOPS_FALLBACK['R-101'];
+    renderTripScreen();
+    showScreen('screen-trip');
+  }
+}
+
+function renderTripScreen() {
+  document.getElementById('trip-bus-num').textContent = driverData.bus_number;
+  document.getElementById('trip-route-en').textContent = driverData.route_name_en;
+  document.getElementById('trip-route-bn').textContent = driverData.route_name_bn;
+  document.getElementById('trip-route-full').textContent = `${driverData.route_name_en} (${driverData.route_code})`;
+  document.getElementById('trip-operator').textContent = driverData.operator_name;
+  document.getElementById('trip-driver-code').textContent = driverData.driver_code;
+
+  renderStopsList();
+}
+
+function renderStopsList() {
+  const container = document.getElementById('driver-stops-list');
+  document.getElementById('current-stop-status').textContent = `Stop ${currentStopIndex + 1} of ${routeStops.length}`;
+
+  container.innerHTML = routeStops.map((stop, idx) => {
+    const isReached = idx < currentStopIndex;
+    const isCurrent = idx === currentStopIndex;
+    const itemClass = isReached ? 'reached' : (isCurrent ? 'current-target' : '');
+
+    return `
+    <div class="stop-list-item ${itemClass}">
+      <div>
+        <div class="stop-name-title">${idx + 1}. ${stop.en}</div>
+        <div class="stop-name-sub">${stop.bn} • ${stop.dist}</div>
+      </div>
+      <div>
+        ${isReached ? '<span style="color:var(--success);font-weight:700;font-size:0.8rem;">✓ Reached</span>' :
+          (isCurrent ? `<button class="btn-mark-stop" onclick="markStopReached(${idx})">Mark Reached</button>` :
+           '<span style="color:var(--text-sub);font-size:0.75rem;">Upcoming</span>')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function markStopReached(index) {
+  currentStopIndex = index + 1;
+  const currentStop = routeStops[index];
+
+  // Update bus position to this stop's lat/lng
+  driverData.latestLat = currentStop.lat;
+  driverData.latestLng = currentStop.lng;
+
+  // Broadcast location immediately across all channels
+  await uploadLocation();
+
+  renderStopsList();
+  alert(`Marked Reached: ${currentStop.en}`);
+}
+
+function startTrip() {
+  // Check Secure Context (HTTPS requirement for Geolocation)
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    console.warn('Warning: Geolocation API requires HTTPS or localhost in modern browsers.');
+  }
+
+  // Ensure initial lat/lng exists
+  if (!driverData.latestLat && routeStops.length > 0) {
+    driverData.latestLat = routeStops[0].lat;
+    driverData.latestLng = routeStops[0].lng;
+  }
+
+  if (!navigator.geolocation) {
+    alert('Geolocation API not supported in this browser. Simulated/stop location updates will still work.');
+    document.getElementById('gps-coords').textContent = 'GPS API Not Supported';
+  } else {
+    document.getElementById('gps-coords').textContent = 'Requesting GPS access...';
+    gpsWatchId = navigator.geolocation.watchPosition(
+      pos => {
+        driverData.latestLat = pos.coords.latitude;
+        driverData.latestLng = pos.coords.longitude;
+        document.getElementById('gps-coords').textContent = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
+        console.log(`[GPS Watch] Position acquired: ${pos.coords.latitude}, ${pos.coords.longitude}`);
+        uploadLocation();
+      },
+      err => {
+        console.warn('GPS watch error:', err);
+        let msg = 'GPS Permission Pending / Simulating';
+        if (err.code === 1) msg = 'GPS Access Denied by User';
+        else if (err.code === 2) msg = 'GPS Position Unavailable';
+        else if (err.code === 3) msg = 'GPS Timeout - Retrying...';
+        document.getElementById('gps-coords').textContent = msg;
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  }
+
+  // Perform immediate initial location upload
+  uploadLocation();
+
+  // Schedule regular updates
+  if (uploadInterval) clearInterval(uploadInterval);
+  uploadInterval = setInterval(uploadLocation, 6000);
+
+  document.getElementById('btn-start').style.display = 'none';
+  document.getElementById('btn-stop').style.display = 'flex';
+  document.getElementById('stops-section').style.display = 'block';
+
+  const box = document.getElementById('trip-status-box');
+  box.className = 'status-inner sharing';
+  box.innerHTML = `
+    <span class="status-icon">🟢</span>
+    <div class="status-label">Trip in Progress — Sharing GPS</div>
+    <div class="status-sub">Updating live bus position & stops for passengers</div>
+  `;
+  document.getElementById('gps-dot').className = 'gps-dot active';
+  document.getElementById('gps-text').textContent = 'GPS: Broadcasting Live';
+}
+
+function stopTrip() {
+  if (gpsWatchId && navigator.geolocation) {
+    navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId = null;
+  }
+  if (uploadInterval) {
+    clearInterval(uploadInterval);
+    uploadInterval = null;
+  }
+
+  // Broadcast trip completed status
+  if (driverData) {
+    const payload = {
+      bus_id: driverData.bus_id,
+      bus_number: driverData.bus_number,
+      driver_code: driverData.driver_code,
+      lat: driverData.latestLat || 22.4586,
+      lng: driverData.latestLng || 86.9931,
+      updated_at: new Date().toISOString(),
+      trip_status: 'completed'
+    };
+    localStorage.setItem('live_bus_' + driverData.bus_number, JSON.stringify(payload));
+    if (busBroadcastChannel) busBroadcastChannel.postMessage(payload);
+
+    if (supabaseClient) {
+      supabaseClient.from('bus_locations').upsert({
+        bus_id: driverData.bus_id,
+        lat: payload.lat,
+        lng: payload.lng,
+        updated_at: payload.updated_at,
+        trip_status: 'completed'
+      }, { onConflict: 'bus_id' }).then(({ error }) => {
+        if (error) console.error('Supabase trip end error:', error);
+      });
+    }
+  }
+
+  document.getElementById('btn-start').style.display = 'flex';
+  document.getElementById('btn-stop').style.display = 'none';
+
+  const box = document.getElementById('trip-status-box');
+  box.className = 'status-inner idle';
+  box.innerHTML = `
+    <span class="status-icon">⏸</span>
+    <div class="status-label">Trip Ended</div>
+    <div class="status-sub">Tap "Start Trip" to begin a new journey</div>
+  `;
+  document.getElementById('gps-dot').className = 'gps-dot';
+  document.getElementById('gps-text').textContent = 'GPS: Stopped';
+}
+
+async function uploadLocation() {
+  if (!driverData) return;
+
+  const lat = Number(driverData.latestLat) || 22.4586;
+  const lng = Number(driverData.latestLng) || 86.9931;
+
+  const locationPayload = {
+    bus_id: driverData.bus_id,
+    bus_number: driverData.bus_number,
+    driver_code: driverData.driver_code,
+    lat: lat,
+    lng: lng,
+    updated_at: new Date().toISOString(),
+    trip_status: 'in_progress',
+    current_stop_index: currentStopIndex
+  };
+
+  // 1. Broadcast locally via LocalStorage & BroadcastChannel
+  try {
+    localStorage.setItem('live_bus_' + driverData.bus_number, JSON.stringify(locationPayload));
+    if (busBroadcastChannel) {
+      busBroadcastChannel.postMessage(locationPayload);
+    }
+  } catch (e) {
+    console.warn('Local broadcast error:', e);
+  }
+
+  // 2. Broadcast to Supabase
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient.from('bus_locations').upsert({
+        bus_id: driverData.bus_id,
+        lat: lat,
+        lng: lng,
+        updated_at: locationPayload.updated_at,
+        trip_status: 'in_progress'
+      }, { onConflict: 'bus_id' }).select();
+
+      if (error) {
+        console.error('Supabase bus_locations upsert error:', error.message, error.details, error.hint);
+        document.getElementById('gps-coords').textContent = `DB Upload Error: ${error.message}`;
+      } else {
+        console.log(`[Supabase Upload Success] Bus ${driverData.bus_number} at ${lat}, ${lng}`);
+      }
+    } catch (err) {
+      console.error('Supabase upload exception:', err);
+    }
+  }
+}
+
+function handleLogout() {
+  stopTrip();
+  showScreen('screen-login');
+}
+
+showScreen('screen-login');
+</script>
+</body>
+</html>

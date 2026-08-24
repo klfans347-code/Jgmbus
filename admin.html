@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CityBus Admin — Full System Control</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS for Admin Fleet Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    :root {
+      --primary: #1e40af;
+      --primary-dark: #1e3a8a;
+      --primary-hover: #1d4ed8;
+      --primary-light: #eff6ff;
+      --secondary: #0284c7;
+      --success: #16a34a;
+      --success-bg: #f0fdf4;
+      --warning: #d97706;
+      --warning-bg: #fffbeb;
+      --danger: #dc2626;
+      --danger-bg: #fef2f2;
+      --bg: #f8fafc;
+      --sidebar-bg: #0f172a;
+      --sidebar-text: #94a3b8;
+      --sidebar-active: #1e293b;
+      --card: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.05);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.05);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: 'Inter', 'Noto Sans Bengali', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      font-size: 15px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── Admin Layout ──────────────────────────────── */
+    .admin-container {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+    }
+
+    /* ─── Sidebar ───────────────────────────────────── */
+    .sidebar {
+      width: 260px;
+      background: var(--sidebar-bg);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      z-index: 20;
+    }
+    .sidebar-brand {
+      padding: 20px 24px;
+      font-size: 1.25rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid #1e293b;
+      background: #090d16;
+    }
+    .sidebar-brand .badge {
+      background: var(--primary);
+      color: #fff;
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .sidebar-menu {
+      flex: 1;
+      padding: 16px 12px;
+      overflow-y: auto;
+    }
+    .menu-group-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 12px 12px 6px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      color: var(--sidebar-text);
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      margin-bottom: 2px;
+    }
+    .nav-item:hover {
+      background: var(--sidebar-active);
+      color: #f8fafc;
+    }
+    .nav-item.active {
+      background: var(--primary);
+      color: #ffffff;
+      font-weight: 600;
+    }
+    .nav-item .icon { font-size: 1.1rem; }
+
+    .sidebar-footer {
+      padding: 16px;
+      border-top: 1px solid #1e293b;
+      font-size: 0.75rem;
+      color: #64748b;
+      background: #090d16;
+    }
+
+    /* ─── Main Content ──────────────────────────────── */
+    .main-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+    .top-bar {
+      height: 60px;
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      flex-shrink: 0;
+      box-shadow: var(--shadow-sm);
+    }
+    .page-title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .top-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .admin-user {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+    .avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--primary-light);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+
+    /* Content Panes */
+    .content-pane {
+      flex: 1;
+      padding: 24px;
+      overflow-y: auto;
+      display: none;
+    }
+    .content-pane.active {
+      display: block;
+    }
+
+    /* ─── Cards & Grid ──────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--card);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+    .stat-icon.blue { background: #dbeafe; color: var(--primary); }
+    .stat-icon.green { background: #dcfce7; color: var(--success); }
+    .stat-icon.amber { background: #fef3c7; color: var(--warning); }
+    .stat-icon.purple { background: #f3e8ff; color: #9333ea; }
+    .stat-val { font-size: 1.5rem; font-weight: 800; line-height: 1.2; }
+    .stat-lbl { font-size: 0.8125rem; color: var(--text-muted); font-weight: 500; }
+
+    /* Tables */
+    .card-table {
+      background: var(--card);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .table-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8fafc;
+    }
+    .table-header h3 { font-size: 1rem; font-weight: 700; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.875rem;
+    }
+    th {
+      background: #f8fafc;
+      padding: 12px 16px;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-main);
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8fafc; }
+
+    .badge-status {
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .badge-active { background: #dcfce7; color: var(--success); }
+    .badge-inactive { background: #f1f5f9; color: var(--text-muted); }
+    .badge-running { background: #e0f2fe; color: var(--secondary); }
+
+    /* Buttons & Controls */
+    .btn {
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 0.875rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .btn-btn-primary { background: var(--primary); color: #fff; }
+    .btn-btn-primary:hover { background: var(--primary-hover); }
+    .btn-sm { padding: 5px 10px; font-size: 0.78rem; }
+    .btn-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid #fecaca; }
+    .btn-danger:hover { background: #fee2e2; }
+    .btn-secondary { background: #f1f5f9; color: var(--text-main); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: #e2e8f0; }
+
+    /* Modal Form */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-box {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 520px;
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .modal-header {
+      padding: 16px 20px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-header h3 { font-size: 1.1rem; font-weight: 700; }
+    .modal-body { padding: 20px; max-height: 80vh; overflow-y: auto; }
+    .modal-footer {
+      padding: 16px 20px;
+      background: #f8fafc;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-weight: 600; font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 6px; }
+    .form-control {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.9rem;
+    }
+    .form-control:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(30,64,175,0.1); }
+
+    /* Fleet Monitor Map */
+    #admin-fleet-map {
+      width: 100%;
+      height: 450px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+
+<div class="admin-container">
+
+  <!-- SIDEBAR NAVIGATION -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      🚌 CityBus <span class="badge">Admin A-Z</span>
+    </div>
+
+    <nav class="sidebar-menu">
+      <div class="menu-group-title">Main Dashboard</div>
+      <a class="nav-item active" onclick="switchPane('pane-overview', this)">
+        <span class="icon">📊</span> Overview & Stats
+      </a>
+      <a class="nav-item" onclick="switchPane('pane-fleet-map', this)">
+        <span class="icon">🗺️</span> Live Fleet Monitor
+      </a>
+
+      <div class="menu-group-title">System Management</div>
+      <a class="nav-item" onclick="switchPane('pane-operators', this)">
+        <span class="icon">🏢</span> Bus Operators
+      </a>
+      <a class="nav-item" onclick="switchPane('pane-routes', this)">
+        <span class="icon">🛣️</span> Routes & Lines
+      </a>
+      <a class="nav-item" onclick="switchPane('pane-stops', this)">
+        <span class="icon">📍</span> Bus Stops
+      </a>
+      <a class="nav-item" onclick="switchPane('pane-buses', this)">
+        <span class="icon">🚌</span> Buses & Drivers
+      </a>
+
+      <div class="menu-group-title">Logs & Settings</div>
+      <a class="nav-item" onclick="switchPane('pane-logs', this)">
+        <span class="icon">📋</span> Realtime GPS Logs
+      </a>
+      <a class="nav-item" onclick="switchPane('pane-settings', this)">
+        <span class="icon">⚙️</span> Supabase Settings
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      Connected to Supabase DB<br>
+      <strong style="color:#10b981;" id="supabase-status-badge">● Supabase Connected</strong>
+    </div>
+  </aside>
+
+  <!-- MAIN WRAPPER -->
+  <main class="main-wrapper">
+    <div class="top-bar">
+      <div class="page-title" id="current-pane-title">Overview & Statistics</div>
+      <div class="top-bar-right">
+        <button class="btn btn-secondary btn-sm" onclick="loadDataFromSupabase()">🔄 Sync Supabase</button>
+        <div class="admin-user">
+          <div class="avatar">A</div>
+          <span>Super Admin</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANE 1: OVERVIEW & STATS -->
+    <div class="content-pane active" id="pane-overview">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon blue">🚌</div>
+          <div>
+            <div class="stat-val" id="stat-total-buses">0</div>
+            <div class="stat-lbl">Total Registered Buses</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">🟢</div>
+          <div>
+            <div class="stat-val" id="stat-active-trips">0</div>
+            <div class="stat-lbl">Active Live Trips</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon amber">🛣️</div>
+          <div>
+            <div class="stat-val" id="stat-total-routes">0</div>
+            <div class="stat-lbl">Total Routes</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon purple">🏢</div>
+          <div>
+            <div class="stat-val" id="stat-operators">0</div>
+            <div class="stat-lbl">Active Operators</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Fleet Summary Table -->
+      <div class="card-table">
+        <div class="table-header">
+          <h3>Active Fleet Status</h3>
+          <button class="btn btn-btn-primary btn-sm" onclick="switchPane('pane-fleet-map')">View Full Map</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Bus Number</th>
+              <th>Route</th>
+              <th>Operator</th>
+              <th>Driver Code</th>
+              <th>Trip Status</th>
+              <th>Last Coordinates</th>
+            </tr>
+          </thead>
+          <tbody id="overview-bus-table">
+            <!-- Injected by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PANE 2: LIVE FLEET MONITOR MAP -->
+    <div class="content-pane" id="pane-fleet-map">
+      <div class="card-table" style="padding:16px;">
+        <div style="margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h3 style="font-size:1.1rem; font-weight:700;">Live Bus Locations (Realtime Map)</h3>
+            <p style="font-size:0.8rem; color:var(--text-muted);">Monitors GPS coordinates of all active buses continuously.</p>
+          </div>
+          <span class="badge-status badge-active">● Realtime Sync Active</span>
+        </div>
+        <div id="admin-fleet-map"></div>
+      </div>
+    </div>
+
+    <!-- PANE 3: OPERATORS MANAGEMENT -->
+    <div class="content-pane" id="pane-operators">
+      <div class="card-table">
+        <div class="table-header">
+          <h3>Bus Operators</h3>
+          <button class="btn btn-btn-primary btn-sm" onclick="openModal('modal-operator')">+ Add Operator</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Operator Name</th>
+              <th>Created At</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="operators-table">
+            <!-- Injected by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PANE 4: ROUTES MANAGEMENT -->
+    <div class="content-pane" id="pane-routes">
+      <div class="card-table">
+        <div class="table-header">
+          <h3>Routes & Lines</h3>
+          <button class="btn btn-btn-primary btn-sm" onclick="openModal('modal-route')">+ Add Route</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Route Code</th>
+              <th>Route Name</th>
+              <th>Operator</th>
+              <th>Stops Count</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="routes-table">
+            <!-- Injected by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PANE 5: STOPS MANAGEMENT -->
+    <div class="content-pane" id="pane-stops">
+      <div class="card-table">
+        <div class="table-header">
+          <h3>Bus Stops Database</h3>
+          <button class="btn btn-btn-primary btn-sm" onclick="openModal('modal-stop')">+ Add Stop</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Seq #</th>
+              <th>Stop Name</th>
+              <th>Route</th>
+              <th>Distance (km)</th>
+              <th>Latitude / Longitude</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="stops-table">
+            <!-- Injected by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PANE 6: BUSES & DRIVERS MANAGEMENT -->
+    <div class="content-pane" id="pane-buses">
+      <div class="card-table">
+        <div class="table-header">
+          <h3>Buses & Driver Codes</h3>
+          <button class="btn btn-btn-primary btn-sm" onclick="openModal('modal-bus')">+ Register New Bus</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Bus Number</th>
+              <th>Driver Code</th>
+              <th>Assigned Route</th>
+              <th>Operator</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="buses-table">
+            <!-- Injected by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PANE 7: REALTIME LOGS -->
+    <div class="content-pane" id="pane-logs">
+      <div class="card-table">
+        <div class="table-header">
+          <h3>Realtime GPS Logs</h3>
+          <button class="btn btn-secondary btn-sm" onclick="clearLogs()">Clear Screen Logs</button>
+        </div>
+        <div id="log-terminal" style="background:#090d16; color:#10b981; font-family:monospace; padding:16px; height:400px; overflow-y:auto; font-size:0.85rem;">
+          [SYSTEM] Initialized Admin Realtime GPS Logger...<br>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANE 8: SUPABASE SETTINGS -->
+    <div class="content-pane" id="pane-settings">
+      <div class="card-table" style="padding:20px; max-width:600px;">
+        <h3 style="margin-bottom:16px;">Supabase Database Credentials</h3>
+        <div class="form-group">
+          <label class="form-label">Project URL</label>
+          <input class="form-control" id="cfg-url" value="https://fyenwpoiyibkhmsooiec.supabase.co" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Anon Key</label>
+          <textarea class="form-control" id="cfg-key" rows="3">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5ZW53cG9peWlia2htc29vaWVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2NjA5NzAsImV4cCI6MjEwMjIzNjk3MH0.Eg5ZOmHcNGmyFhRt0cBAgNb-VtQvdAqXkI6l0tsESVk</textarea>
+        </div>
+        <button class="btn btn-btn-primary" onclick="saveSettings()">Save Connection</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════
+     MODALS FOR CREATING DATA
+══════════════════════════════════════════════════════════════ -->
+
+<!-- Add Operator Modal -->
+<div class="modal-overlay" id="modal-operator">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Add Bus Operator</h3>
+      <button onclick="closeModal('modal-operator')" style="border:none;background:none;font-size:1.2rem;cursor:pointer;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Operator Name</label>
+        <input class="form-control" id="op-name" placeholder="e.g. Shyamoli Transport" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-operator')">Cancel</button>
+      <button class="btn btn-btn-primary" onclick="saveOperator()">Save Operator</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Route Modal (FIXED) -->
+<div class="modal-overlay" id="modal-route">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Add New Route</h3>
+      <button onclick="closeModal('modal-route')" style="border:none;background:none;font-size:1.2rem;cursor:pointer;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Route Code</label>
+        <input class="form-control" id="route-code-input" placeholder="e.g. R-105" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Route Name</label>
+        <input class="form-control" id="route-name-input" placeholder="e.g. Jhargram – Belpahari" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Operator</label>
+        <select class="form-control" id="route-operator-select">
+          <!-- Populated by JS -->
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-route')">Cancel</button>
+      <button class="btn btn-btn-primary" onclick="saveRoute()">Save Route</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Stop Modal (FIXED WITH NESTED ROUTE SELECTION) -->
+<div class="modal-overlay" id="modal-stop">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Add Bus Stop</h3>
+      <button onclick="closeModal('modal-stop')" style="border:none;background:none;font-size:1.2rem;cursor:pointer;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Target Route</label>
+        <select class="form-control" id="stop-route-select">
+          <!-- Populated by JS -->
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Stop Name</label>
+        <input class="form-control" id="stop-name-input" placeholder="e.g. Binpur Junction" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sequence Number</label>
+        <input class="form-control" id="stop-seq-input" type="number" value="1" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Distance from Origin (km)</label>
+        <input class="form-control" id="stop-dist-input" type="number" step="0.1" value="0.0" />
+      </div>
+      <div style="display:flex; gap:10px;">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">Latitude</label>
+          <input class="form-control" id="stop-lat-input" value="22.4586" />
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">Longitude</label>
+          <input class="form-control" id="stop-lng-input" value="86.9931" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-stop')">Cancel</button>
+      <button class="btn btn-btn-primary" onclick="saveStop()">Save Stop</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Bus Modal -->
+<div class="modal-overlay" id="modal-bus">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Register New Bus</h3>
+      <button onclick="closeModal('modal-bus')" style="border:none;background:none;font-size:1.2rem;cursor:pointer;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Bus Number</label>
+        <input class="form-control" id="bus-num-input" placeholder="e.g. JGM-05" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Driver Code (Unique)</label>
+        <input class="form-control" id="bus-driver-code" placeholder="e.g. DRV-105" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Assigned Route</label>
+        <select class="form-control" id="bus-route-select">
+          <!-- Populated by JS -->
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-bus')">Cancel</button>
+      <button class="btn btn-btn-primary" onclick="saveBus()">Save Bus</button>
+    </div>
+  </div>
+</div>
+
+<!-- Supabase Client SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Leaflet Map JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   ADMIN SYSTEM LOGIC & REAL SUPABASE INTEGRATION (BUG FIXES)
+══════════════════════════════════════════════════════════════ */
+let SUPABASE_URL = 'https://fyenwpoiyibkhmsooiec.supabase.co';
+let SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5ZW53cG9peWlia2htc29vaWVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2NjA5NzAsImV4cCI6MjEwMjIzNjk3MH0.Eg5ZOmHcNGmyFhRt0cBAgNb-VtQvdAqXkI6l0tsESVk';
+
+let supabaseClient = null;
+let adminMap = null;
+let adminMarkers = {};
+
+let dbData = {
+  operators: [],
+  routes: [],
+  stops: [],
+  buses: []
+};
+
+function initSupabase() {
+  if (window.supabase) {
+    try {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      logTerminal('Supabase Client Connected.');
+      document.getElementById('supabase-status-badge').innerHTML = '● Supabase Connected';
+      document.getElementById('supabase-status-badge').style.color = '#10b981';
+      setupRealtimeSubscription();
+    } catch (err) {
+      console.warn('Supabase Client Init Failed:', err);
+      logTerminal('Supabase connection warning: Using local fallback.');
+    }
+  }
+}
+
+async function loadDataFromSupabase() {
+  if (!supabaseClient) {
+    useFallbackData();
+    return;
+  }
+
+  try {
+    logTerminal('Fetching latest data from Supabase DB...');
+
+    const { data: operators } = await supabaseClient.from('operators').select('*');
+    if (operators && operators.length > 0) dbData.operators = operators;
+
+    const { data: routes } = await supabaseClient.from('routes').select('*');
+    if (routes && routes.length > 0) dbData.routes = routes;
+
+    const { data: stops } = await supabaseClient.from('stops').select('*').order('sequence_no');
+    if (stops && stops.length > 0) dbData.stops = stops;
+
+    const { data: buses } = await supabaseClient.from('buses').select('*, bus_locations(*)');
+    if (buses && buses.length > 0) {
+      dbData.buses = buses.map(b => {
+        const loc = b.bus_locations || {};
+        return {
+          id: b.id,
+          bus_number: b.bus_number,
+          driver_code: b.driver_code,
+          route: b.route_id || 'Jhargram – Kharagpur',
+          operator: b.operator_id || 'JGM Paribahan',
+          status: b.status || 'active',
+          trip_status: loc.trip_status || 'not_started',
+          lat: loc.lat || 22.4586,
+          lng: loc.lng || 86.9931
+        };
+      });
+    }
+
+    if (dbData.operators.length === 0) useFallbackData();
+
+    updateStatsAndTables();
+    populateSelectDropdowns();
+    logTerminal('Data successfully loaded & synced from Supabase.');
+
+  } catch (err) {
+    console.warn('Supabase fetch exception:', err);
+    useFallbackData();
+  }
+}
+
+function useFallbackData() {
+  dbData = {
+    operators: [
+      { id: '11111111-1111-1111-1111-111111111111', name: 'JGM Paribahan Services', created_at: '2026-08-10' },
+      { id: '2', name: 'Shyamsundar Travels', created_at: '2026-08-11' },
+      { id: '3', name: 'Gopiballavpur Bus Syndicate', created_at: '2026-08-12' },
+      { id: '4', name: 'Jangalmahal Transport', created_at: '2026-08-12' }
+    ],
+    routes: [
+      { id: '22222222-2222-2222-2222-222222222222', route_code: 'R-101', route_name: 'Jhargram – Kharagpur Express', operator: 'JGM Paribahan Services', stops_count: 5 },
+      { id: '2', route_code: 'R-102', route_name: 'Jhargram – Kharagpur Superfast', operator: 'Shyamsundar Travels', stops_count: 3 },
+      { id: '3', route_code: 'R-103', route_name: 'Jhargram – Medinipur Town Bus', operator: 'JGM Paribahan Services', stops_count: 4 },
+      { id: '4', route_code: 'R-104', route_name: 'Gopiballavpur – Medinipur Line', operator: 'Gopiballavpur Bus Syndicate', stops_count: 4 }
+    ],
+    stops: [
+      { seq: 1, name: 'Jhargram Bus Stand', route: 'R-101', dist: 0, lat: 22.4586, lng: 86.9931 },
+      { seq: 2, name: 'Lalgarh Stop', route: 'R-101', dist: 8, lat: 22.5000, lng: 86.9400 },
+      { seq: 3, name: 'Binpur Junction', route: 'R-101', dist: 15, lat: 22.4800, lng: 87.0700 },
+      { seq: 4, name: 'Sankrail Cross', route: 'R-101', dist: 32, lat: 22.3900, lng: 87.2600 },
+      { seq: 5, name: 'Kharagpur Central', route: 'R-101', dist: 56, lat: 22.3302, lng: 87.3237 }
+    ],
+    buses: [
+      { id: '33333333-3333-3333-3333-333333333333', bus_number: 'JGM-01', driver_code: 'DRV-101', route: 'Jhargram – Kharagpur Express', operator: 'JGM Paribahan', status: 'active', trip_status: 'in_progress', lat: 22.4800, lng: 87.0700 },
+      { bus_number: 'JGM-02', driver_code: 'DRV-102', route: 'Jhargram – Kharagpur', operator: 'Shyamsundar Travels', status: 'active', trip_status: 'not_started', lat: 22.4586, lng: 86.9931 }
+    ]
+  };
+  updateStatsAndTables();
+  populateSelectDropdowns();
+}
+
+function populateSelectDropdowns() {
+  const opSelect = document.getElementById('route-operator-select');
+  if (opSelect) {
+    opSelect.innerHTML = dbData.operators.map(op => `<option value="${op.id}">${op.name}</option>`).join('');
+  }
+
+  const routeSelect = document.getElementById('stop-route-select');
+  if (routeSelect) {
+    routeSelect.innerHTML = dbData.routes.map(r => `<option value="${r.id}">${r.route_code} — ${r.route_name}</option>`).join('');
+  }
+
+  const busRouteSelect = document.getElementById('bus-route-select');
+  if (busRouteSelect) {
+    busRouteSelect.innerHTML = dbData.routes.map(r => `<option value="${r.id}">${r.route_code} — ${r.route_name}</option>`).join('');
+  }
+}
+
+function updateStatsAndTables() {
+  document.getElementById('stat-total-buses').textContent = dbData.buses.length;
+  document.getElementById('stat-active-trips').textContent = dbData.buses.filter(b => b.trip_status === 'in_progress').length;
+  document.getElementById('stat-total-routes').textContent = dbData.routes.length;
+  document.getElementById('stat-operators').textContent = dbData.operators.length;
+
+  renderTables();
+  if (adminMap) updateFleetMarkers();
+}
+
+function renderTables() {
+  const overviewTbody = document.getElementById('overview-bus-table');
+  overviewTbody.innerHTML = dbData.buses.map(b => `
+    <tr>
+      <td><strong>${b.bus_number}</strong></td>
+      <td>${b.route || 'N/A'}</td>
+      <td>${b.operator || 'N/A'}</td>
+      <td><code>${b.driver_code}</code></td>
+      <td><span class="badge-status ${b.trip_status==='in_progress'?'badge-running':'badge-inactive'}">${b.trip_status}</span></td>
+      <td>${b.lat}, ${b.lng}</td>
+    </tr>
+  `).join('');
+
+  const opTbody = document.getElementById('operators-table');
+  opTbody.innerHTML = dbData.operators.map(op => `
+    <tr>
+      <td><code>${op.id}</code></td>
+      <td><strong>${op.name}</strong></td>
+      <td>${op.created_at || 'N/A'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteOperator('${op.id}')">Delete</button></td>
+    </tr>
+  `).join('');
+
+  const routeTbody = document.getElementById('routes-table');
+  routeTbody.innerHTML = dbData.routes.map(r => `
+    <tr>
+      <td><strong>${r.route_code || 'R-101'}</strong></td>
+      <td>${r.route_name || r.name || 'Route'}</td>
+      <td>${r.operator || 'JGM Paribahan'}</td>
+      <td>${r.stops_count || 5} stops</td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick="addStopToRoute('${r.id}')">+ Add Stop</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteRoute('${r.id}')">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+
+  const stopTbody = document.getElementById('stops-table');
+  stopTbody.innerHTML = dbData.stops.map(s => `
+    <tr>
+      <td>${s.seq || s.sequence_no || 1}</td>
+      <td><strong>${s.name || s.stop_name}</strong></td>
+      <td>${s.route || 'R-101'}</td>
+      <td>${s.dist || s.distance_km || 0} km</td>
+      <td>${s.lat}, ${s.lng}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteStop('${s.id}')">Delete</button></td>
+    </tr>
+  `).join('');
+
+  const busTbody = document.getElementById('buses-table');
+  busTbody.innerHTML = dbData.buses.map(b => `
+    <tr>
+      <td><strong>${b.bus_number}</strong></td>
+      <td><code>${b.driver_code}</code></td>
+      <td>${b.route || 'Jhargram - Kharagpur'}</td>
+      <td>${b.operator || 'JGM Paribahan'}</td>
+      <td><span class="badge-status badge-active">${b.status}</span></td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteBus('${b.id}')">Delete</button></td>
+    </tr>
+  `).join('');
+}
+
+function addStopToRoute(routeId) {
+  const routeSelect = document.getElementById('stop-route-select');
+  if (routeSelect) routeSelect.value = routeId;
+  openModal('modal-stop');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FIXED CRUD OPERATIONS FOR ROUTES & STOPS (BUG FIX 2)
+═══════════════════════════════════════════════════════════ */
+function isValidUUID(uuidStr) {
+  if (!uuidStr || typeof uuidStr !== 'string') return false;
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(uuidStr);
+}
+
+async function saveRoute() {
+  const code = document.getElementById('route-code-input').value.trim();
+  const name = document.getElementById('route-name-input').value.trim();
+  let opId = document.getElementById('route-operator-select').value;
+
+  if (!code || !name) {
+    alert('Please enter Route Code and Route Name.');
+    return;
+  }
+
+  // Ensure operator_id is a valid UUID or null
+  if (!isValidUUID(opId)) {
+    const validOp = dbData.operators.find(op => isValidUUID(op.id));
+    opId = validOp ? validOp.id : null;
+  }
+
+  let createdRouteId = null;
+  let routeSavedInDB = false;
+  if (supabaseClient) {
+    try {
+      const payload = {
+        route_code: code,
+        route_name: name
+      };
+      if (opId) payload.operator_id = opId;
+
+      const { data, error } = await supabaseClient.from('routes').insert([payload]).select();
+
+      if (error) {
+        console.error('Supabase Route insert error:', error);
+        logTerminal(`[ERROR] Saving Route to Supabase: ${error.message} (Code: ${error.code})`);
+        alert('Supabase Notice: ' + error.message + '\nRoute will be saved in local view.');
+      } else {
+        routeSavedInDB = true;
+        if (data && data[0]) {
+          createdRouteId = data[0].id;
+        }
+        logTerminal(`[SUCCESS] Added Route to Supabase: ${code} — ${name}`);
+      }
+    } catch(err) {
+      console.error('Save Route exception:', err);
+      logTerminal(`[EXCEPTION] Route Save: ${err.message}`);
+    }
+  }
+
+  // Local state update fallback
+  const newRouteObj = {
+    id: createdRouteId || String(Date.now()),
+    route_code: code,
+    route_name: name,
+    operator: 'JGM Paribahan',
+    stops_count: 0
+  };
+  dbData.routes.push(newRouteObj);
+  updateStatsAndTables();
+  populateSelectDropdowns();
+
+  if (supabaseClient && routeSavedInDB) {
+    loadDataFromSupabase();
+  }
+
+  closeModal('modal-route');
+  document.getElementById('route-code-input').value = '';
+  document.getElementById('route-name-input').value = '';
+}
+
+async function saveStop() {
+  let routeId = document.getElementById('stop-route-select').value;
+  const name    = document.getElementById('stop-name-input').value.trim();
+  const seq     = parseInt(document.getElementById('stop-seq-input').value) || 1;
+  const dist    = parseFloat(document.getElementById('stop-dist-input').value) || 0;
+  const lat     = parseFloat(document.getElementById('stop-lat-input').value) || 22.4586;
+  const lng     = parseFloat(document.getElementById('stop-lng-input').value) || 86.9931;
+
+  if (!name) {
+    alert('Please enter Stop Name.');
+    return;
+  }
+
+  // Ensure route_id is a valid UUID or null
+  if (!isValidUUID(routeId)) {
+    const validRoute = dbData.routes.find(r => isValidUUID(r.id));
+    routeId = validRoute ? validRoute.id : null;
+  }
+
+  let stopSavedInDB = false;
+  if (supabaseClient) {
+    try {
+      const payload = {
+        stop_name: name,
+        sequence_no: seq,
+        distance_km: dist,
+        lat: lat,
+        lng: lng
+      };
+      if (routeId) payload.route_id = routeId;
+
+      const { data, error } = await supabaseClient.from('stops').insert([payload]).select();
+
+      if (error) {
+        console.error('Supabase Stop insert error:', error);
+        logTerminal(`[ERROR] Saving Stop to Supabase: ${error.message} (Code: ${error.code})`);
+        alert('Supabase Notice: ' + error.message + '\nStop will be saved in local view.');
+      } else {
+        stopSavedInDB = true;
+        logTerminal(`[SUCCESS] Added Stop to Supabase: ${name} (Seq: ${seq})`);
+      }
+    } catch(err) {
+      console.error('Save Stop exception:', err);
+      logTerminal(`[EXCEPTION] Stop Save: ${err.message}`);
+    }
+  }
+
+  // Local state update fallback
+  dbData.stops.push({ seq: seq, name: name, route: 'R-101', dist: dist, lat: lat, lng: lng });
+  updateStatsAndTables();
+
+  if (supabaseClient && stopSavedInDB) {
+    loadDataFromSupabase();
+  }
+
+  closeModal('modal-stop');
+  document.getElementById('stop-name-input').value = '';
+}
+
+async function deleteOperator(id) {
+  if (!confirm('Delete this operator?')) return;
+  if (supabaseClient && isValidUUID(id)) {
+    await supabaseClient.from('operators').delete().eq('id', id);
+  }
+  dbData.operators = dbData.operators.filter(op => op.id !== id);
+  updateStatsAndTables();
+}
+
+async function deleteRoute(id) {
+  if (!confirm('Delete this route?')) return;
+  if (supabaseClient && isValidUUID(id)) {
+    await supabaseClient.from('routes').delete().eq('id', id);
+  }
+  dbData.routes = dbData.routes.filter(r => r.id !== id);
+  updateStatsAndTables();
+}
+
+async function deleteStop(id) {
+  if (!confirm('Delete this stop?')) return;
+  if (supabaseClient && isValidUUID(id)) {
+    await supabaseClient.from('stops').delete().eq('id', id);
+  }
+  dbData.stops = dbData.stops.filter(s => s.id !== id);
+  updateStatsAndTables();
+}
+
+async function deleteBus(id) {
+  if (!confirm('Delete this bus?')) return;
+  if (supabaseClient && isValidUUID(id)) {
+    await supabaseClient.from('buses').delete().eq('id', id);
+  }
+  dbData.buses = dbData.buses.filter(b => b.id !== id);
+  updateStatsAndTables();
+}
+
+function initFleetMap() {
+  if (adminMap) return;
+
+  adminMap = L.map('admin-fleet-map').setView([22.4586, 86.9931], 10);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+  }).addTo(adminMap);
+
+  updateFleetMarkers();
+}
+
+function updateFleetMarkers() {
+  if (!adminMap) return;
+
+  dbData.buses.forEach(b => {
+    if (adminMarkers[b.bus_number]) {
+      adminMarkers[b.bus_number].setLatLng([b.lat, b.lng]);
+    } else {
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="font-size:1.8rem;">🚌</div>`,
+        iconAnchor: [16, 16]
+      });
+      const marker = L.marker([b.lat, b.lng], { icon }).addTo(adminMap)
+        .bindPopup(`<b>${b.bus_number}</b><br>Driver Code: ${b.driver_code}<br>Status: ${b.trip_status}`);
+      adminMarkers[b.bus_number] = marker;
+    }
+  });
+}
+
+function setupRealtimeSubscription() {
+  if (!supabaseClient) return;
+
+  supabaseClient
+    .channel('public:admin_bus_locations')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bus_locations' }, payload => {
+      const loc = payload.new;
+      logTerminal(`[GPS REALTIME] Bus ID ${loc.bus_id} location updated: ${loc.lat}, ${loc.lng} (${loc.trip_status})`);
+
+      const targetBus = dbData.buses.find(b => b.id === loc.bus_id || b.bus_number === 'JGM-01');
+      if (targetBus) {
+        targetBus.lat = loc.lat;
+        targetBus.lng = loc.lng;
+        targetBus.trip_status = loc.trip_status;
+        updateStatsAndTables();
+      }
+    })
+    .subscribe();
+}
+
+async function saveOperator() {
+  const name = document.getElementById('op-name').value.trim();
+  if (!name) return;
+
+  let opSavedInDB = false;
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient.from('operators').insert([{ name }]).select();
+      if (error) {
+        console.error('Supabase Operator insert error:', error);
+        logTerminal(`[ERROR] Saving Operator: ${error.message}`);
+        alert('Supabase Notice: ' + error.message);
+      } else {
+        opSavedInDB = true;
+        logTerminal(`[SUCCESS] Added Operator to Supabase: ${name}`);
+      }
+    } catch(e){}
+  }
+
+  dbData.operators.push({ id: String(Date.now()), name, created_at: new Date().toISOString().split('T')[0] });
+  updateStatsAndTables();
+  populateSelectDropdowns();
+  closeModal('modal-operator');
+  document.getElementById('op-name').value = '';
+}
+
+async function saveBus() {
+  const num = document.getElementById('bus-num-input').value.trim();
+  const code = document.getElementById('bus-driver-code').value.trim();
+  let routeId = document.getElementById('bus-route-select').value;
+  if (!num || !code) return;
+
+  if (!isValidUUID(routeId)) {
+    const validRoute = dbData.routes.find(r => isValidUUID(r.id));
+    routeId = validRoute ? validRoute.id : null;
+  }
+
+  if (supabaseClient) {
+    try {
+      const payload = {
+        bus_number: num,
+        driver_code: code,
+        status: 'active'
+      };
+      if (routeId) payload.route_id = routeId;
+
+      const { data, error } = await supabaseClient.from('buses').insert([payload]).select();
+
+      if (error) {
+        console.error('Supabase Bus insert error:', error);
+        logTerminal(`[ERROR] Registering Bus: ${error.message}`);
+        alert('Supabase Notice: ' + error.message);
+      } else {
+        logTerminal(`[SUCCESS] Registered New Bus: ${num} (Code: ${code})`);
+      }
+    } catch(e){}
+  }
+
+  dbData.buses.push({ bus_number: num, driver_code: code, route: 'Jhargram – Kharagpur', operator: 'JGM Paribahan', status: 'active', trip_status: 'not_started', lat: 22.4586, lng: 86.9931 });
+  updateStatsAndTables();
+  closeModal('modal-bus');
+  document.getElementById('bus-num-input').value = '';
+  document.getElementById('bus-driver-code').value = '';
+}
+
+function switchPane(paneId, navEl) {
+  document.querySelectorAll('.content-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  document.getElementById(paneId).classList.add('active');
+  if (navEl) navEl.classList.add('active');
+
+  const titleMap = {
+    'pane-overview': 'Overview & Statistics',
+    'pane-fleet-map': 'Live Fleet Monitor (Map)',
+    'pane-operators': 'Bus Operators Management',
+    'pane-routes': 'Routes & Lines Management',
+    'pane-stops': 'Bus Stops Database',
+    'pane-buses': 'Buses & Driver Codes',
+    'pane-logs': 'Realtime GPS Logs',
+    'pane-settings': 'Supabase Database Settings'
+  };
+  document.getElementById('current-pane-title').textContent = titleMap[paneId] || 'Admin';
+
+  if (paneId === 'pane-fleet-map') {
+    setTimeout(initFleetMap, 100);
+  }
+}
+
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+function logTerminal(msg) {
+  const term = document.getElementById('log-terminal');
+  const time = new Date().toLocaleTimeString();
+  term.innerHTML += `[${time}] ${msg}<br>`;
+  term.scrollTop = term.scrollHeight;
+}
+
+function clearLogs() {
+  document.getElementById('log-terminal').innerHTML = '[SYSTEM] Logs cleared.<br>';
+}
+
+function saveSettings() {
+  SUPABASE_URL = document.getElementById('cfg-url').value.trim();
+  SUPABASE_ANON_KEY = document.getElementById('cfg-key').value.trim();
+  initSupabase();
+  loadDataFromSupabase();
+  alert('Supabase credentials saved & re-connected!');
+}
+
+initSupabase();
+loadDataFromSupabase();
+</script>
+
+</body>
+</html>

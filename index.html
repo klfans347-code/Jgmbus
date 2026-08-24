@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CityBus Live — Bus Tracker</title>
+
+  <!-- Google Fonts: Inter & Noto Sans Bengali -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    /* ─── CSS Variables & Design Tokens ───────────────── */
+    :root {
+      --primary:        #1e40af; /* Deep Transit Blue */
+      --primary-hover:  #1d4ed8;
+      --primary-light:  #eff6ff;
+      --secondary:      #0284c7; /* Cyan Accent */
+      --success:        #16a34a; /* Green */
+      --success-bg:     #f0fdf4;
+      --warning:        #d97706; /* Amber */
+      --warning-bg:     #fffbeb;
+      --danger:         #dc2626;
+      --danger-bg:      #fef2f2;
+      --bg:             #f8fafc;
+      --card:           #ffffff;
+      --text-main:      #0f172a;
+      --text-muted:     #64748b;
+      --text-sub:       #94a3b8;
+      --border:         #e2e8f0;
+      --border-focus:   #93c5fd;
+      --radius-sm:      8px;
+      --radius-md:      12px;
+      --radius-lg:      16px;
+      --radius-full:    9999px;
+      --shadow-sm:      0 1px 2px 0 rgba(0,0,0,0.05);
+      --shadow-md:      0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.05);
+      --shadow-lg:      0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.05);
+      /* Framer Motion Spring Timing Token */
+      --spring-ease:    cubic-bezier(0.34, 1.56, 0.64, 1);
+      --smooth-ease:    cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', 'Noto Sans Bengali', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      font-size: 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      touch-action: manipulation;
+    }
+
+    /* ─── Screen Container ────────────────────────────── */
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      transition: transform 0.32s var(--smooth-ease), opacity 0.32s var(--smooth-ease);
+      z-index: 1;
+      overflow: hidden;
+      will-change: transform, opacity;
+    }
+    .screen.hidden {
+      transform: translateX(100%);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── Header Bar ──────────────────────────────────── */
+    .app-header {
+      background: var(--primary);
+      color: #ffffff;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+      box-shadow: var(--shadow-md);
+      z-index: 100;
+      min-height: 60px;
+    }
+    .app-header h1 {
+      font-size: 1.125rem;
+      font-weight: 700;
+      line-height: 1.2;
+      flex: 1;
+    }
+    .app-header .sub-bn {
+      font-size: 0.75rem;
+      font-weight: 400;
+      opacity: 0.85;
+      display: block;
+      margin-top: 1px;
+    }
+
+    /* Framer Motion Press Feedback for Back Button */
+    .btn-back {
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      color: #ffffff;
+      cursor: pointer;
+      width: 42px;
+      height: 42px;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: transform 0.15s var(--spring-ease), background 0.15s ease;
+    }
+    .btn-back:active {
+      transform: scale(0.92);
+      background: rgba(255, 255, 255, 0.28);
+    }
+    .btn-back svg {
+      width: 22px;
+      height: 22px;
+      fill: currentColor;
+    }
+
+    /* ─── SCREEN 1: SEARCH ────────────────────────────── */
+    #screen-search { overflow-y: auto; }
+
+    .hero-banner {
+      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #0284c7 100%);
+      color: #ffffff;
+      padding: 32px 20px 48px;
+      text-align: center;
+      position: relative;
+    }
+    .hero-banner .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 60px;
+      height: 60px;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(12px);
+      border-radius: 18px;
+      margin-bottom: 10px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+      animation: hero-bounce 3s infinite ease-in-out;
+    }
+    @keyframes hero-bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+    .hero-banner h2 { font-size: 1.625rem; font-weight: 800; letter-spacing: -0.02em; }
+    .hero-banner p { font-size: 0.875rem; opacity: 0.9; margin-top: 2px; }
+
+    .search-card-wrapper {
+      max-width: 500px;
+      margin: -24px auto 0;
+      padding: 0 16px;
+      width: 100%;
+    }
+    .search-card {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border);
+    }
+
+    /* Tab Switcher Motion */
+    .search-tabs {
+      display: flex;
+      background: #f1f5f9;
+      padding: 4px;
+      border-radius: var(--radius-md);
+      margin-bottom: 16px;
+      gap: 4px;
+    }
+    .search-tab-btn {
+      flex: 1;
+      padding: 10px 14px;
+      border: none;
+      background: transparent;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s var(--smooth-ease);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .search-tab-btn:active {
+      transform: scale(0.97);
+    }
+    .search-tab-btn.active {
+      background: #ffffff;
+      color: var(--primary);
+      box-shadow: var(--shadow-sm);
+      font-weight: 700;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active {
+      display: block;
+      animation: fadeInTab 0.25s var(--smooth-ease);
+    }
+    @keyframes fadeInTab {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .input-field-group { margin-bottom: 14px; }
+    .input-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .select-box, .input-text-box {
+      display: flex;
+      align-items: center;
+      background: #f8fafc;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .select-box:focus-within, .input-text-box:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.12);
+      background: #ffffff;
+    }
+    .select-box .icon, .input-text-box .icon {
+      padding: 0 12px;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+    }
+    .select-box select, .input-text-box input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 14px 12px 14px 0;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      color: var(--text-main);
+      outline: none;
+      font-family: inherit;
+      min-height: 48px;
+    }
+
+    .swap-divider {
+      display: flex;
+      justify-content: center;
+      margin: -6px 0;
+      position: relative;
+      z-index: 5;
+    }
+    .btn-swap {
+      background: #ffffff;
+      border: 1.5px solid var(--border);
+      color: var(--primary);
+      border-radius: var(--radius-full);
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-md);
+      transition: transform 0.25s var(--spring-ease), background 0.15s ease;
+    }
+    .btn-swap:active {
+      transform: rotate(180deg) scale(0.92);
+      background: var(--primary-light);
+    }
+
+    /* Motion Button Styling */
+    .btn-search {
+      width: 100%;
+      margin-top: 16px;
+      padding: 16px;
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(30, 64, 175, 0.25);
+      transition: transform 0.15s var(--spring-ease), background 0.15s ease, box-shadow 0.15s ease;
+      min-height: 52px;
+    }
+    .btn-search:hover {
+      background: var(--primary-hover);
+      box-shadow: 0 6px 16px rgba(30, 64, 175, 0.35);
+    }
+    .btn-search:active {
+      transform: scale(0.97);
+    }
+
+    /* Quick Routes Chips Motion */
+    .quick-routes {
+      max-width: 500px;
+      margin: 20px auto;
+      padding: 0 16px 32px;
+    }
+    .quick-routes-title {
+      font-size: 0.8125rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .chips-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .route-chip {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-full);
+      padding: 8px 16px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--primary);
+      cursor: pointer;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.15s var(--spring-ease), background 0.15s ease, border-color 0.15s ease;
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+    }
+    .route-chip:hover {
+      background: var(--primary-light);
+      border-color: var(--border-focus);
+    }
+    .route-chip:active {
+      transform: scale(0.95);
+    }
+
+    /* ─── SCREEN 2: RESULTS ───────────────────────────── */
+    #screen-results { overflow-y: auto; }
+    .results-summary-bar {
+      background: var(--primary);
+      color: #ffffff;
+      padding: 14px 16px 18px;
+    }
+    .results-container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 16px 12px 32px;
+    }
+    .bus-card {
+      background: var(--card);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.2s var(--spring-ease), box-shadow 0.2s ease, border-color 0.2s ease;
+      animation: slideInUp 0.3s var(--smooth-ease) forwards;
+      opacity: 0;
+    }
+    @keyframes slideInUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .bus-card:hover {
+      box-shadow: var(--shadow-md);
+      border-color: var(--border-focus);
+      transform: translateY(-2px);
+    }
+    .bus-card:active {
+      transform: scale(0.98);
+    }
+    .bus-card-top { padding: 16px; display: flex; gap: 14px; }
+    .bus-number-badge {
+      background: var(--primary);
+      color: #ffffff;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 0.9375rem;
+      font-weight: 800;
+      min-width: 68px;
+      text-align: center;
+      box-shadow: 0 2px 6px rgba(30,64,175,0.25);
+    }
+    .bus-details { flex: 1; }
+    .bus-name-en { font-size: 1rem; font-weight: 700; color: var(--text-main); }
+    .bus-operator { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+    .bus-card-bottom {
+      background: #f8fafc;
+      border-top: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+    }
+    .track-cta {
+      color: var(--primary);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* ─── SCREEN 3: LIVE TRACKING ─────────────────────── */
+    #screen-tracking { display: flex; flex-direction: column; }
+    .tracking-bus-bar { background: var(--primary); color: #fff; padding: 10px 16px; flex-shrink: 0; }
+    .live-status-banner {
+      padding: 10px 16px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .live-status-banner.running { background: var(--success-bg); color: var(--success); }
+    .live-status-banner.delayed { background: var(--warning-bg); color: var(--warning); }
+
+    .map-wrapper-medium {
+      height: 270px;
+      width: 100%;
+      border-bottom: 2px solid var(--border);
+      flex-shrink: 0;
+    }
+    #map { width: 100%; height: 100%; }
+
+    .timeline-scroll-container {
+      flex: 1;
+      overflow-y: auto;
+      background: var(--card);
+      padding: 16px 16px 70px;
+    }
+    .stop-timeline { position: relative; padding-left: 36px; }
+    .stop-timeline::before {
+      content: '';
+      position: absolute;
+      left: 13px;
+      top: 16px;
+      bottom: 24px;
+      width: 4px;
+      background: #cbd5e1;
+      border-radius: 2px;
+    }
+    .stop-node {
+      position: relative;
+      padding: 12px 0 16px 14px;
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px dashed var(--border);
+      animation: fadeInNode 0.25s ease forwards;
+    }
+    @keyframes fadeInNode {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .stop-bullet {
+      position: absolute;
+      left: -36px;
+      top: 16px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #94a3b8;
+      border: 3px solid #fff;
+      box-shadow: 0 0 0 2px #cbd5e1;
+    }
+    .stop-node.state-passed .stop-bullet {
+      background: var(--success);
+      box-shadow: 0 0 0 2px var(--success);
+    }
+
+    /* CURRENT BUS LIVE INDICATOR PULSE */
+    .stop-node.state-current {
+      background: #eff6ff;
+      border-radius: var(--radius-md);
+      padding: 12px 10px 14px 24px;
+      border: 1px solid var(--border-focus);
+    }
+    .stop-node.state-current .stop-bullet {
+      background: var(--primary);
+      width: 22px; height: 22px;
+      left: -39px; top: 14px;
+      animation: sonar-pulse 1.6s infinite ease-in-out;
+    }
+    @keyframes sonar-pulse {
+      0%, 100% { box-shadow: 0 0 0 2px var(--primary); }
+      50% { box-shadow: 0 0 0 8px rgba(30, 64, 175, 0.25); }
+    }
+
+    .refresh-bar-fixed {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #fff;
+      border-top: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 100;
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.06);
+    }
+    .btn-refresh {
+      background: var(--primary-light);
+      color: var(--primary);
+      border: 1px solid var(--border-focus);
+      border-radius: var(--radius-full);
+      padding: 8px 18px;
+      font-weight: 700;
+      font-size: 0.8125rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform 0.15s var(--spring-ease), background 0.15s ease;
+    }
+    .btn-refresh:active {
+      transform: scale(0.94);
+      background: #dbeafe;
+    }
+  </style>
+</head>
+<body>
+
+<!-- SCREEN 1: SEARCH (Route or Bus Number Direct Search) -->
+<div id="screen-search" class="screen">
+  <div class="hero-banner">
+    <div class="logo-badge">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M8 6v6m8-6v6M4 10h16M3 6a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V6z"/>
+        <circle cx="7.5" cy="18.5" r="1.5"/><circle cx="16.5" cy="18.5" r="1.5"/>
+      </svg>
+    </div>
+    <h2>CityBus Live</h2>
+    <p>Real-Time Bus Location Tracker / সজীব বাস ট্র্যাকার</p>
+  </div>
+
+  <div class="search-card-wrapper">
+    <div class="search-card">
+
+      <!-- TAB SWITCHER: ROUTE vs BUS NUMBER -->
+      <div class="search-tabs">
+        <button class="search-tab-btn active" onclick="switchSearchTab('tab-route', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+          Search by Route
+        </button>
+        <button class="search-tab-btn" onclick="switchSearchTab('tab-busnum', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="7.5" cy="16.5" r="1.5"/><circle cx="16.5" cy="16.5" r="1.5"/></svg>
+          Direct Bus # Search
+        </button>
+      </div>
+
+      <!-- TAB 1: ROUTE SEARCH -->
+      <div class="tab-content active" id="tab-route">
+        <div class="input-field-group">
+          <label class="input-label" for="from-stop">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
+            From Stop / কোথা থেকে
+          </label>
+          <div class="select-box">
+            <span class="icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
+            </span>
+            <select id="from-stop">
+              <option value="">-- Select Origin Stop --</option>
+              <option value="jhargram">Jhargram Bus Stand (ঝাড়গ্রাম)</option>
+              <option value="belpahari">Belpahari (বেলপাহাড়ি)</option>
+              <option value="gopiballavpur">Gopiballavpur (গোপীবল্লভপুর)</option>
+              <option value="kharagpur">Kharagpur (খড়গপুর)</option>
+              <option value="medinipur">Medinipur (মেদিনীপুর)</option>
+              <option value="sankrail">Sankrail (শাঁকরাইল)</option>
+              <option value="lalgarh">Lalgarh (লালগড়)</option>
+              <option value="binpur">Binpur (বিনপুর)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="swap-divider">
+          <button class="btn-swap" onclick="swapStops()" title="Swap stops">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 16V4M7 4L3 8M7 4L11 8M17 8V20M17 20L21 16M17 20L13 16"/></svg>
+          </button>
+        </div>
+
+        <div class="input-field-group">
+          <label class="input-label" for="to-stop">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--danger);"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg>
+            To Stop / কোথায় যাবেন
+          </label>
+          <div class="select-box">
+            <span class="icon" style="color:var(--danger);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5" fill="currentColor"/></svg>
+            </span>
+            <select id="to-stop">
+              <option value="">-- Select Destination Stop --</option>
+              <option value="jhargram">Jhargram Bus Stand (ঝাড়গ্রাম)</option>
+              <option value="belpahari">Belpahari (বেলপাহাড়ি)</option>
+              <option value="gopiballavpur">Gopiballavpur (গোপীবল্লভপুর)</option>
+              <option value="kharagpur">Kharagpur (খড়গপুর)</option>
+              <option value="medinipur">Medinipur (মেদিনীপুর)</option>
+              <option value="sankrail">Sankrail (শাঁকরাইল)</option>
+              <option value="lalgarh">Lalgarh (লালগড়)</option>
+              <option value="binpur">Binpur (বিনপুর)</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn-search" onclick="findBus()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          Find Buses / বাস খুঁজুন
+        </button>
+      </div>
+
+      <!-- TAB 2: DIRECT BUS NUMBER SEARCH -->
+      <div class="tab-content" id="tab-busnum">
+        <div class="input-field-group">
+          <label class="input-label" for="bus-num-search">Enter Bus Number / বাস নম্বর দিন</label>
+          <div class="input-text-box">
+            <span class="icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="7.5" cy="16.5" r="1.5"/><circle cx="16.5" cy="16.5" r="1.5"/></svg>
+            </span>
+            <input id="bus-num-search" type="text" placeholder="e.g. JGM-01, BEL-02" value="JGM-01" />
+          </div>
+        </div>
+        <button class="btn-search" onclick="directBusSearch()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M2 12h20"/></svg>
+          Track Bus / বাস ট্র্যাক করুন
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="quick-routes">
+    <div class="quick-routes-title">⭐ Popular Routes</div>
+    <div class="chips-grid">
+      <button class="route-chip" onclick="quickRoute('jhargram','kharagpur')">Jhargram → Kharagpur</button>
+      <button class="route-chip" onclick="quickRoute('jhargram','medinipur')">Jhargram → Medinipur</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 2: RESULTS -->
+<div id="screen-results" class="screen hidden">
+  <div class="app-header">
+    <button class="btn-back" onclick="goBack('screen-search')">
+      <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+    </button>
+    <div>
+      <h1>Available Buses</h1>
+      <span class="sub-bn">বাসের তালিকা ও লাইভ স্ট্যাটাস</span>
+    </div>
+  </div>
+
+  <div class="results-summary-bar">
+    <div class="route-heading">
+      <span id="summary-from-en">Jhargram</span> → <span id="summary-to-en">Kharagpur</span>
+    </div>
+    <div class="route-bn" id="summary-route-bn">ঝাড়গ্রাম → খড়গপুর</div>
+  </div>
+
+  <div class="results-container" id="results-list"></div>
+</div>
+
+<!-- SCREEN 3: LIVE TRACKING -->
+<div id="screen-tracking" class="screen hidden">
+  <div class="app-header">
+    <button class="btn-back" onclick="goBack('screen-results')">
+      <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+    </button>
+    <div>
+      <h1 id="tracking-header-title">Bus Live Tracking</h1>
+      <span class="sub-bn">লাইভ লোকেশন ও টাইমলাইন</span>
+    </div>
+  </div>
+
+  <div class="tracking-bus-bar">
+    <div class="tracking-bus-title" id="track-bus-title">JGM-01 — Jhargram to Kharagpur</div>
+    <div class="tracking-bus-sub" id="track-bus-sub">JGM Paribahan</div>
+  </div>
+
+  <div class="live-status-banner running" id="status-banner">
+    <span id="status-text-en">Bus on route</span>
+    <button class="sim-badge" id="btn-sim-toggle" onclick="toggleMovementSimulation()">▶ Move Bus</button>
+  </div>
+
+  <div class="map-wrapper-medium">
+    <div id="map"></div>
+  </div>
+
+  <div class="timeline-scroll-container">
+    <div class="timeline-header">
+      <span>Route Timeline</span>
+      <span style="color:var(--primary);">Live</span>
+    </div>
+    <div class="stop-timeline" id="stop-timeline"></div>
+  </div>
+
+  <div class="refresh-bar-fixed">
+    <span id="last-update">Last update: Just now</span>
+    <button class="btn-refresh" onclick="refreshTracking()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+      Refresh
+    </button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+const SUPABASE_URL = 'https://fyenwpoiyibkhmsooiec.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5ZW53cG9peWlia2htc29vaWVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2NjA5NzAsImV4cCI6MjEwMjIzNjk3MH0.Eg5ZOmHcNGmyFhRt0cBAgNb-VtQvdAqXkI6l0tsESVk';
+
+let supabaseClient = null;
+if (window.supabase) {
+  try { supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e){}
+}
+
+const STOPS_META = {
+  jhargram:      { en: 'Jhargram Bus Stand', bn: 'ঝাড়গ্রাম বাসস্ট্যান্ড', lat: 22.4586, lng: 86.9931 },
+  lalgarh:       { en: 'Lalgarh Stop',        bn: 'লালগড় স্টপ',          lat: 22.5000, lng: 86.9400 },
+  belpahari:     { en: 'Belpahari Stand',     bn: 'বেলপাহাড়ি স্ট্যান্ড',    lat: 22.6082, lng: 86.9584 },
+  binpur:        { en: 'Binpur Junction',    bn: 'বিনপুর জংশন',          lat: 22.4800, lng: 87.0700 },
+  sankrail:      { en: 'Sankrail Cross',     bn: 'শাঁকরাইল মোড়',          lat: 22.3900, lng: 87.2600 },
+  kharagpur:     { en: 'Kharagpur Central',   bn: 'খড়গপুর সেন্ট্রাল',     lat: 22.3302, lng: 87.3237 },
+  medinipur:     { en: 'Medinipur Terminus',  bn: 'মেদিনীপুর টার্মিনাস',   lat: 22.4224, lng: 87.3194 },
+  gopiballavpur: { en: 'Gopiballavpur Stand',bn: 'গোপীবল্লভপুর স্ট্যান্ড', lat: 21.9966, lng: 86.9788 },
+};
+
+const DUMMY_BUSES = [
+  {
+    id: 'bus-101',
+    busNumber: 'JGM-01',
+    routeCode: 'R-101',
+    routeNameEn: 'Jhargram – Kharagpur Express',
+    routeNameBn: 'ঝাড়গ্রাম – খড়গপুর এক্সপ্রেস',
+    operator: 'JGM Paribahan Services',
+    from: 'jhargram', to: 'kharagpur',
+    status: 'running', nextDeparture: '11:30 AM', viaEn: 'Via Lalgarh, Binpur, Sankrail',
+    stops: [
+      { key: 'jhargram', dist: '0 km', arrive: '10:30 AM', state: 'passed' },
+      { key: 'lalgarh', dist: '8 km', arrive: '10:48 AM', state: 'passed' },
+      { key: 'binpur', dist: '15 km', arrive: '11:05 AM', state: 'current' },
+      { key: 'sankrail', dist: '32 km', arrive: '11:35 AM', state: 'upcoming' },
+      { key: 'kharagpur', dist: '56 km', arrive: '12:15 PM', state: 'upcoming' }
+    ],
+    currentLat: 22.4800, currentLng: 87.0700,
+    statusMsgEn: 'Bus left Binpur Junction at 11:05 AM'
+  },
+  {
+    id: 'bus-105',
+    busNumber: 'BEL-02',
+    routeCode: 'R-105',
+    routeNameEn: 'Belpahari – Kharagpur Local',
+    routeNameBn: 'বেলপাহাড়ি – খড়গপুর লোকাল',
+    operator: 'Jangalmahal Transport',
+    from: 'belpahari', to: 'kharagpur',
+    status: 'running', nextDeparture: '11:30 AM', viaEn: 'Via Jhargram, Binpur',
+    stops: [
+      { key: 'belpahari', dist: '0 km', arrive: '08:00 AM', state: 'passed' },
+      { key: 'jhargram', dist: '22 km', arrive: '09:00 AM', state: 'passed' },
+      { key: 'binpur', dist: '37 km', arrive: '09:45 AM', state: 'current' },
+      { key: 'kharagpur', dist: '78 km', arrive: '11:30 AM', state: 'upcoming' }
+    ],
+    currentLat: 22.4800, currentLng: 87.0700,
+    statusMsgEn: 'Bus reached Binpur Junction'
+  }
+];
+
+let currentBus = null;
+let leafletMap = null;
+let busMarker  = null;
+let simInterval= null;
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+function goBack(id) {
+  if (simInterval) { clearInterval(simInterval); simInterval = null; }
+  showScreen(id);
+}
+
+function switchSearchTab(tabId, btnEl) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.search-tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  btnEl.classList.add('active');
+}
+
+function swapStops() {
+  const f = document.getElementById('from-stop');
+  const t = document.getElementById('to-stop');
+  const temp = f.value; f.value = t.value; t.value = temp;
+}
+
+function quickRoute(f, t) {
+  document.getElementById('from-stop').value = f;
+  document.getElementById('to-stop').value   = t;
+  findBus();
+}
+
+function findBus() {
+  const fromVal = document.getElementById('from-stop').value;
+  const toVal   = document.getElementById('to-stop').value;
+  if (!fromVal || !toVal) { alert('Select both stops.'); return; }
+  renderResults(fromVal, toVal);
+  showScreen('screen-results');
+}
+
+function directBusSearch() {
+  const num = document.getElementById('bus-num-search').value.trim().toUpperCase();
+  if (!num) {
+    alert('Please enter a Bus Number (e.g. JGM-01)');
+    return;
+  }
+
+  const bus = DUMMY_BUSES.find(b => b.busNumber.toUpperCase() === num);
+  if (!bus) {
+    alert(`Bus number "${num}" not found. Try "JGM-01" or "BEL-02".`);
+    return;
+  }
+
+  openTracking(bus.id);
+}
+
+function renderResults(from, to) {
+  const container = document.getElementById('results-list');
+  const matched = DUMMY_BUSES.filter(b => {
+    const keys = b.stops.map(s => s.key);
+    return keys.indexOf(from) !== -1 && keys.indexOf(to) !== -1;
+  });
+
+  if (matched.length === 0) {
+    container.innerHTML = `<div class="no-data"><h3>No Buses Found</h3></div>`;
+    return;
+  }
+
+  container.innerHTML = matched.map((bus, idx) => `
+    <div class="bus-card" style="animation-delay: ${idx * 80}ms;" onclick="openTracking('${bus.id}')">
+      <div class="bus-card-top">
+        <div class="bus-number-badge">${bus.busNumber}</div>
+        <div class="bus-details">
+          <div class="bus-name-en">${bus.routeNameEn}</div>
+          <div class="bus-operator">🏢 ${bus.operator}</div>
+        </div>
+      </div>
+      <div class="bus-card-bottom">
+        <span>🛣 ${bus.viaEn}</span>
+        <span class="track-cta">Live Track ›</span>
+      </div>
+    </div>`).join('');
+}
+
+function openTracking(busId) {
+  currentBus = DUMMY_BUSES.find(b => b.id === busId);
+  if (!currentBus) return;
+  document.getElementById('track-bus-title').textContent = `${currentBus.busNumber} — ${currentBus.routeNameEn}`;
+  document.getElementById('track-bus-sub').textContent = currentBus.operator;
+
+  // Check if live location is in LocalStorage
+  try {
+    const saved = localStorage.getItem('live_bus_' + currentBus.busNumber);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.lat && parsed.lng) {
+        currentBus.currentLat = parsed.lat;
+        currentBus.currentLng = parsed.lng;
+      }
+    }
+  } catch(e){}
+
+  renderStopTimeline(currentBus);
+  showScreen('screen-tracking');
+  setTimeout(() => {
+    initMap(currentBus);
+    fetchLiveBusLocationFromSupabase(currentBus.busNumber);
+  }, 100);
+
+  subscribeToLiveLocationUpdates(currentBus.busNumber);
+}
+
+function renderStopTimeline(bus) {
+  const container = document.getElementById('stop-timeline');
+  container.innerHTML = bus.stops.map((stop, idx) => {
+    const meta = STOPS_META[stop.key] || { en: stop.key, bn: stop.key };
+    return `
+    <div class="stop-node state-${stop.state}" style="animation-delay: ${idx * 60}ms;">
+      <div class="stop-bullet"></div>
+      <div class="stop-info">
+        <div class="stop-name-en">${meta.en}</div>
+        <div class="stop-name-bn">${meta.bn}</div>
+      </div>
+      <div class="stop-time-col">
+        <div class="stop-time">${stop.arrive}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function initMap(bus) {
+  const points = bus.stops.map(s => STOPS_META[s.key] ? [STOPS_META[s.key].lat, STOPS_META[s.key].lng] : null).filter(Boolean);
+  if (leafletMap) { leafletMap.remove(); leafletMap = null; }
+  leafletMap = L.map('map').setView([bus.currentLat, bus.currentLng], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(leafletMap);
+  if (points.length > 1) L.polyline(points, { color: '#1e40af', weight: 4 }).addTo(leafletMap);
+  const busIcon = L.divIcon({ html: '<div style="font-size:1.8rem;">🚌</div>', iconAnchor: [16,16] });
+  busMarker = L.marker([bus.currentLat, bus.currentLng], { icon: busIcon }).addTo(leafletMap);
+}
+
+function updateBusMarkerPosition(lat, lng, statusMsg) {
+  if (busMarker && leafletMap) {
+    busMarker.setLatLng([lat, lng]);
+    leafletMap.panTo([lat, lng]);
+  }
+  const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const el = document.getElementById('last-update');
+  if (el) el.textContent = `Last update: ${timeStr}` + (statusMsg ? ` (${statusMsg})` : '');
+}
+
+async function fetchLiveBusLocationFromSupabase(busNum) {
+  if (!supabaseClient) return;
+  try {
+    const { data: buses } = await supabaseClient.from('buses').select('id, bus_number, bus_locations(*)').eq('bus_number', busNum).limit(1);
+    if (buses && buses.length > 0 && buses[0].bus_locations) {
+      const loc = Array.isArray(buses[0].bus_locations) ? buses[0].bus_locations[0] : buses[0].bus_locations;
+      if (loc && loc.lat && loc.lng) {
+        updateBusMarkerPosition(Number(loc.lat), Number(loc.lng), 'Live DB');
+      }
+    }
+  } catch(e){
+    console.warn('Error fetching live location from Supabase:', e);
+  }
+}
+
+let activeSupabaseChannel = null;
+function subscribeToLiveLocationUpdates(busNum) {
+  // 1. Listen to Local BroadcastChannel for cross-tab live sync
+  if (window.BroadcastChannel) {
+    try {
+      const ch = new BroadcastChannel('citybus_live_channel');
+      ch.onmessage = (event) => {
+        const data = event.data;
+        if (data && data.bus_number === busNum && data.lat && data.lng) {
+          updateBusMarkerPosition(data.lat, data.lng, 'Live Driver Broadcast');
+        }
+      };
+    } catch(e){}
+  }
+
+  // 2. Listen to LocalStorage events
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'live_bus_' + busNum && e.newValue) {
+      try {
+        const parsed = JSON.parse(e.newValue);
+        if (parsed.lat && parsed.lng) {
+          updateBusMarkerPosition(parsed.lat, parsed.lng, 'Local Storage Sync');
+        }
+      } catch(err){}
+    }
+  });
+
+  // 3. Listen to Supabase Realtime DB changes
+  if (supabaseClient) {
+    if (activeSupabaseChannel) supabaseClient.removeChannel(activeSupabaseChannel);
+    activeSupabaseChannel = supabaseClient
+      .channel('public:bus_locations_' + busNum)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bus_locations' }, payload => {
+        const loc = payload.new;
+        if (loc && loc.lat && loc.lng) {
+          updateBusMarkerPosition(Number(loc.lat), Number(loc.lng), 'DB Realtime');
+        }
+      })
+      .subscribe();
+  }
+}
+
+function toggleMovementSimulation() {
+  if (simInterval) { clearInterval(simInterval); simInterval = null; return; }
+  let i = 0;
+  simInterval = setInterval(() => {
+    i = (i + 1) % currentBus.stops.length;
+    const stop = currentBus.stops[i];
+    const meta = STOPS_META[stop.key];
+    if (meta && busMarker) {
+      busMarker.setLatLng([meta.lat, meta.lng]);
+      leafletMap.panTo([meta.lat, meta.lng]);
+    }
+  }, 4000);
+}
+
+function refreshTracking() {
+  if (currentBus) {
+    fetchLiveBusLocationFromSupabase(currentBus.busNumber);
+    alert('Refreshed live tracking data for ' + currentBus.busNumber);
+  }
+}
+
+showScreen('screen-search');
+</script>
+</body>
+</html>

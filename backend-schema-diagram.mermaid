@@ -1,0 +1,55 @@
+erDiagram
+    OPERATORS ||--o{ ROUTES : owns
+    OPERATORS ||--o{ BUSES : owns
+    ROUTES ||--o{ STOPS : contains
+    ROUTES ||--o{ BUSES : runs_on
+    BUSES ||--|| BUS_LOCATIONS : has_current
+    BUSES ||--o{ TRIPS : logs
+
+    OPERATORS {
+        uuid id PK
+        text name
+        timestamp created_at
+    }
+
+    ROUTES {
+        uuid id PK
+        uuid operator_id FK
+        text route_name
+        text route_code
+        timestamp created_at
+    }
+
+    STOPS {
+        uuid id PK
+        uuid route_id FK
+        text stop_name
+        int sequence_no
+        numeric distance_km
+        numeric lat
+        numeric lng
+    }
+
+    BUSES {
+        uuid id PK
+        uuid route_id FK
+        uuid operator_id FK
+        text bus_number
+        text driver_code
+        text status
+    }
+
+    BUS_LOCATIONS {
+        uuid bus_id PK_FK
+        numeric lat
+        numeric lng
+        timestamp updated_at
+        text trip_status
+    }
+
+    TRIPS {
+        uuid id PK
+        uuid bus_id FK
+        timestamp started_at
+        timestamp ended_at
+    }
