@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1e40af" />
+  <link rel="manifest" href="manifest.json" />
   <title>CityBus Live — Bus Tracker</title>
 
   <!-- Google Fonts: Inter & Noto Sans Bengali -->
@@ -921,13 +923,68 @@ function renderStopTimeline(bus) {
 }
 
 function initMap(bus) {
-  const points = bus.stops.map(s => STOPS_META[s.key] ? [STOPS_META[s.key].lat, STOPS_META[s.key].lng] : null).filter(Boolean);
+  const stopsData = bus.stops.map(s => {
+    const meta = STOPS_META[s.key];
+    return meta ? { key: s.key, lat: meta.lat, lng: meta.lng, en: meta.en, bn: meta.bn } : null;
+  }).filter(Boolean);
+  const points = stopsData.map(s => [s.lat, s.lng]);
+
   if (leafletMap) { leafletMap.remove(); leafletMap = null; }
   leafletMap = L.map('map').setView([bus.currentLat, bus.currentLng], 12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(leafletMap);
-  if (points.length > 1) L.polyline(points, { color: '#1e40af', weight: 4 }).addTo(leafletMap);
-  const busIcon = L.divIcon({ html: '<div style="font-size:1.8rem;">🚌</div>', iconAnchor: [16,16] });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(leafletMap);
+
+  // Add Stop Pins on Map
+  stopsData.forEach((st, idx) => {
+    const isTerminus = (idx === 0 || idx === stopsData.length - 1);
+    const pinColor = isTerminus ? '#dc2626' : '#1e40af';
+    const stopIcon = L.divIcon({
+      className: 'custom-stop-pin',
+      html: `<div style="background:${pinColor}; color:white; font-size:11px; font-weight:700; padding:2px 7px; border-radius:10px; border:2px solid white; box-shadow:0 2px 5px rgba(0,0,0,0.3); white-space:nowrap;">📍 ${st.en}</div>`,
+      iconAnchor: [20, 12]
+    });
+    L.marker([st.lat, st.lng], { icon: stopIcon }).addTo(leafletMap).bindPopup(`<b>${st.en}</b><br/>${st.bn}`);
+  });
+
+  // Draw Road Polyline using OSRM Routing Engine (Follows actual roads!)
+  if (points.length > 1) {
+    drawRoadRoute(leafletMap, points);
+  }
+
+  // Bus Marker
+  const busIcon = L.divIcon({ html: '<div style="font-size:2rem; filter: drop-shadow(0px 3px 6px rgba(0,0,0,0.4));">🚌</div>', iconAnchor: [16,16] });
   busMarker = L.marker([bus.currentLat, bus.currentLng], { icon: busIcon }).addTo(leafletMap);
+}
+
+async function drawRoadRoute(mapInstance, points) {
+  // Direct fallback straight polyline while fetching OSRM road geometry
+  const fallbackLine = L.polyline(points, { color: '#1e40af', weight: 4, opacity: 0.6, dashArray: '6, 8' }).addTo(mapInstance);
+  if (points.length < 2) return;
+
+  try {
+    const coordString = points.map(p => `${p[1]},${p[0]}`).join(';');
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&geometries=geojson`;
+    const response = await fetch(osrmUrl);
+    const data = await response.json();
+
+    if (data.code === 'Ok' && data.routes && data.routes[0]) {
+      const geojsonRoute = data.routes[0].geometry;
+      if (mapInstance.hasLayer(fallbackLine)) mapInstance.removeLayer(fallbackLine);
+      const roadLayer = L.geoJSON(geojsonRoute, {
+        style: {
+          color: '#1e40af',
+          weight: 5,
+          opacity: 0.85,
+          lineJoin: 'round'
+        }
+      }).addTo(mapInstance);
+      mapInstance.fitBounds(roadLayer.getBounds(), { padding: [30, 30] });
+    }
+  } catch (err) {
+    console.warn("OSRM routing fallback:", err);
+  }
 }
 
 function updateBusMarkerPosition(lat, lng, statusMsg) {
@@ -1019,6 +1076,12 @@ function refreshTracking() {
 }
 
 showScreen('screen-search');
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed:', err));
+  });
+}
 </script>
 </body>
 </html>
