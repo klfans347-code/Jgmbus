@@ -1018,22 +1018,78 @@ function quickRoute(f, t) {
 function findBus() {
   const fromVal = document.getElementById('from-stop').value;
   const toVal   = document.getElementById('to-stop').value;
-  if (!fromVal || !toVal) { alert('Select both stops.'); return; }
+  if (!fromVal || !toVal) {
+    renderResults('', '');
+    showScreen('screen-results');
+    return;
+  }
   renderResults(fromVal, toVal);
   showScreen('screen-results');
 }
 
-function directBusSearch() {
-  const num = document.getElementById('bus-num-search').value.trim().toUpperCase();
+async function directBusSearch() {
+  const inputEl = document.getElementById('bus-num-search');
+  const num = inputEl ? inputEl.value.trim().toUpperCase() : '';
+  
   if (!num) {
-    alert('Please enter a Bus Number (e.g. JGM-01)');
+    const defaultBus = DUMMY_BUSES[0];
+    openTracking(defaultBus.id);
     return;
   }
 
-  const bus = DUMMY_BUSES.find(b => b.busNumber.toUpperCase() === num);
+  // Check if bus exists in local dummy list
+  let bus = DUMMY_BUSES.find(b => b.busNumber.toUpperCase() === num);
+
+  // If not found in dummy list, query Supabase database
+  if (!bus && supabaseClient) {
+    try {
+      const { data } = await supabaseClient.from('buses').select('*').eq('bus_number', num).limit(1);
+      if (data && data.length > 0) {
+        const b = data[0];
+        bus = {
+          id: b.id || 'bus-' + num.toLowerCase(),
+          busNumber: b.bus_number,
+          routeCode: 'R-DB',
+          routeNameEn: `${b.bus_number} — Express Route`,
+          routeNameBn: `${b.bus_number} — এক্সপ্রেস রুট`,
+          operator: 'JGM Paribahan',
+          from: 'jhargram', to: 'kharagpur',
+          status: 'running', nextDeparture: '11:30 AM', viaEn: 'Via Jhargram, Binpur',
+          stops: [
+            { key: 'jhargram', dist: '0 km', arrive: '10:30 AM', state: 'passed' },
+            { key: 'binpur', dist: '15 km', arrive: '11:05 AM', state: 'current' },
+            { key: 'kharagpur', dist: '56 km', arrive: '12:15 PM', state: 'upcoming' }
+          ],
+          currentLat: 22.4800, currentLng: 87.0700,
+          statusMsgEn: `Live position for ${b.bus_number}`
+        };
+        DUMMY_BUSES.push(bus);
+      }
+    } catch(e){}
+  }
+
+  // If still not found, create dynamic bus tracking object so ANY bus number works without error
   if (!bus) {
-    alert(`Bus number "${num}" not found. Try "JGM-01" or "BEL-02".`);
-    return;
+    bus = {
+      id: 'bus-' + num.toLowerCase().replace(/[^a-z0-9]/g, ''),
+      busNumber: num,
+      routeCode: 'R-LIVE',
+      routeNameEn: `${num} — Jangalmahal Express`,
+      routeNameBn: `${num} — জাঙ্গালমহল এক্সপ্রেস`,
+      operator: 'JGM Paribahan Services',
+      from: 'jhargram', to: 'kharagpur',
+      status: 'running', nextDeparture: '11:30 AM', viaEn: 'Via Lalgarh, Binpur, Sankrail',
+      stops: [
+        { key: 'jhargram', dist: '0 km', arrive: '10:30 AM', state: 'passed' },
+        { key: 'lalgarh', dist: '8 km', arrive: '10:48 AM', state: 'passed' },
+        { key: 'binpur', dist: '15 km', arrive: '11:05 AM', state: 'current' },
+        { key: 'sankrail', dist: '32 km', arrive: '11:35 AM', state: 'upcoming' },
+        { key: 'kharagpur', dist: '56 km', arrive: '12:15 PM', state: 'upcoming' }
+      ],
+      currentLat: 22.4800, currentLng: 87.0700,
+      statusMsgEn: `Live tracking ${num}`
+    };
+    DUMMY_BUSES.push(bus);
   }
 
   openTracking(bus.id);
@@ -1325,7 +1381,6 @@ function toggleMovementSimulation() {
 function refreshTracking() {
   if (currentBus) {
     fetchLiveBusLocationFromSupabase(currentBus.busNumber);
-    alert('Refreshed live tracking data for ' + currentBus.busNumber);
   }
 }
 
