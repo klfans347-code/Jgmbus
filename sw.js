@@ -1,4 +1,4 @@
-const CACHE_NAME = 'citybus-v1';
+const CACHE_NAME = 'citybus-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -8,9 +8,6 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-  );
   self.skipWaiting();
 });
 
@@ -27,11 +24,22 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Network First Strategy: Always load latest code from Netlify server!
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request).catch(() => caches.match('/index.html'));
-    })
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && event.request.url.startsWith('http')) {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cached) => {
+          return cached || caches.match('/index.html');
+        });
+      })
   );
 });
