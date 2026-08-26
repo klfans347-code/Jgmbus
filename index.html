@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
@@ -722,6 +724,36 @@
       font-size: 0.85rem;
       color: #64748b;
       max-width: 260px;
+    }
+
+    /* ─── MOBILE FRIENDLY TOUCH & SCREEN OPTIMIZATIONS ───────────────── */
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+    input, select, button {
+      font-size: 16px; /* Prevents auto-zoom in iOS Safari */
+      touch-action: manipulation;
+    }
+
+    @media (max-width: 480px) {
+      .hero-banner { padding: 24px 16px 36px; }
+      .search-card-wrapper { padding: 0 12px; }
+      .search-card { padding: 16px 14px; border-radius: 20px; }
+      .search-tab-btn { font-size: 0.8rem; padding: 10px 6px; }
+      .select-box select, .input-text-box input { height: 48px; font-size: 0.95rem; }
+      .btn-search { height: 48px; font-size: 0.95rem; }
+      .app-header { padding: 10px 14px; min-height: 56px; }
+      .app-header.map-view-header { padding: 10px 14px; min-height: 56px; }
+      .bottom-sheet-card {
+        padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
+        max-height: 62vh;
+        border-radius: 24px 24px 0 0;
+      }
+      .sheet-pin-icon-box { width: 42px; height: 42px; border-radius: 12px; }
+      .sheet-titles h3 { font-size: 0.95rem; }
+      .dep-arr-card { padding: 12px 14px; border-radius: 14px; }
+      .city-name, .dep-arr-col .city { font-size: 0.92rem; }
+      .btn-back-pill, .btn-back-green { width: 38px; height: 38px; }
     }
   </style>
 </head>
