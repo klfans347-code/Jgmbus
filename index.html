@@ -541,6 +541,185 @@
       transform: scale(0.94);
       background: #dbeafe;
     }
+
+    /* ─── SCREENSHOT 1 & 2 MATCHING STYLES ───────────────── */
+    .app-header.map-view-header {
+      background: linear-gradient(135deg, #1d4ed8 0%, #0284c7 100%);
+      color: #ffffff;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 1000;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    .btn-back-pill {
+      width: 42px;
+      height: 42px;
+      background: #ffffff;
+      color: #1d4ed8;
+      border-radius: 50%;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+      flex-shrink: 0;
+      transition: transform 0.15s var(--spring-ease);
+    }
+    .btn-back-pill:active { transform: scale(0.92); }
+
+    .btn-back-green {
+      width: 42px;
+      height: 42px;
+      background: #22c55e;
+      color: #ffffff;
+      border-radius: 50%;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+      flex-shrink: 0;
+      transition: transform 0.15s var(--spring-ease);
+    }
+    .btn-back-green:active { transform: scale(0.92); }
+
+    /* Screenshot 1: Fullscreen Map View & Floating Bottom Sheet */
+    #screen-tracking {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: #f8fafc;
+      position: relative;
+    }
+    .map-fullscreen-wrapper {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    .map-fullscreen-wrapper #map { width: 100%; height: 100%; }
+
+    .bottom-sheet-card {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: #ffffff;
+      border-radius: 28px 28px 0 0;
+      box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.18);
+      z-index: 500;
+      padding: 16px 20px 20px;
+      max-height: 65vh;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+    .sheet-handle {
+      width: 42px;
+      height: 5px;
+      background: #cbd5e1;
+      border-radius: 3px;
+      margin: 0 auto 14px;
+    }
+    .sheet-top-meta {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .sheet-pin-icon-box {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      background: #e0f2fe;
+      color: #0284c7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .sheet-titles h3 {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.25;
+    }
+    .sheet-titles p {
+      font-size: 0.8125rem;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    .dep-arr-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8fafc;
+      border-radius: 16px;
+      padding: 14px 18px;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 16px;
+    }
+    .dep-arr-col { display: flex; flex-direction: column; }
+    .dep-arr-col .caption {
+      font-size: 0.6875rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      color: #0284c7;
+      margin-bottom: 2px;
+    }
+    .dep-arr-col .caption.arr { color: #f97316; }
+    .dep-arr-col .city {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    .dep-arr-arrow { color: #94a3b8; font-size: 1.2rem; }
+
+    /* Screenshot 2: Empty State Card */
+    .empty-state-card {
+      padding: 50px 20px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .empty-illustration {
+      width: 200px;
+      height: 160px;
+      background: #f1f5f9;
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      border: 2px dashed #cbd5e1;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+    }
+    .empty-window-box {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 16px 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      text-align: center;
+      border: 2px solid #bfdbfe;
+    }
+    .empty-state-title {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: #1e293b;
+      margin-bottom: 4px;
+    }
+    .empty-state-sub {
+      font-size: 0.85rem;
+      color: #64748b;
+      max-width: 260px;
+    }
   </style>
 </head>
 <body>
@@ -684,46 +863,58 @@
   <div class="results-container" id="results-list"></div>
 </div>
 
-<!-- SCREEN 3: LIVE TRACKING -->
+<!-- SCREEN 3: LIVE TRACKING (Matching Screenshot 1) -->
 <div id="screen-tracking" class="screen hidden">
-  <div class="app-header">
-    <button class="btn-back" onclick="goBack('screen-results')">
-      <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+  <!-- Header matching Screenshot 1: White Back Button, Operator Title, Route Subtitle -->
+  <div class="app-header map-view-header">
+    <button class="btn-back-pill" onclick="goBack('screen-results')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
     </button>
     <div>
-      <h1 id="tracking-header-title">Bus Live Tracking</h1>
-      <span class="sub-bn">লাইভ লোকেশন ও টাইমলাইন</span>
+      <h1 id="track-header-operator" style="font-size:1.15rem; font-weight:800;">JGM Express</h1>
+      <span class="sub-bn" id="track-header-route" style="opacity:0.9; font-size:0.75rem;">Jhargram - Kharagpur • MAP VIEW</span>
     </div>
   </div>
 
-  <div class="tracking-bus-bar">
-    <div class="tracking-bus-title" id="track-bus-title">JGM-01 — Jhargram to Kharagpur</div>
-    <div class="tracking-bus-sub" id="track-bus-sub">JGM Paribahan</div>
-  </div>
-
-  <div class="live-status-banner running" id="status-banner">
-    <span id="status-text-en">Bus on route</span>
-    <button class="sim-badge" id="btn-sim-toggle" onclick="toggleMovementSimulation()">▶ Move Bus</button>
-  </div>
-
-  <div class="map-wrapper-medium">
+  <!-- Fullscreen Map Container -->
+  <div class="map-fullscreen-wrapper">
     <div id="map"></div>
   </div>
 
-  <div class="timeline-scroll-container">
-    <div class="timeline-header">
-      <span>Route Timeline</span>
-      <span style="color:var(--primary);">Live</span>
+  <!-- Screenshot 1 Floating Bottom Sheet Card -->
+  <div class="bottom-sheet-card">
+    <div class="sheet-handle"></div>
+    <div class="sheet-top-meta">
+      <div class="sheet-pin-icon-box">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5" fill="#0284c7"/></svg>
+      </div>
+      <div class="sheet-titles">
+        <h3 id="sheet-journey-title">Full journey mapped with 5 stops</h3>
+        <p>Visualizing real-time route path</p>
+      </div>
+    </div>
+
+    <!-- Departure -> Arrival Summary Card (Screenshot 1) -->
+    <div class="dep-arr-card">
+      <div class="dep-arr-col">
+        <span class="caption">DEPARTURE</span>
+        <span class="city" id="sheet-dep-city">Jhargram</span>
+      </div>
+      <div class="dep-arr-arrow">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </div>
+      <div class="dep-arr-col">
+        <span class="caption arr">ARRIVAL</span>
+        <span class="city" id="sheet-arr-city">Kharagpur</span>
+      </div>
+    </div>
+
+    <!-- Stop Timeline Section -->
+    <div class="timeline-header" style="padding-bottom:10px; font-weight:700; display:flex; justify-content:space-between; align-items:center;">
+      <span>Route Stops & Timeline</span>
+      <button class="sim-badge" id="btn-sim-toggle" onclick="toggleMovementSimulation()" style="font-size:11px; padding:4px 10px; background:#e0f2fe; color:#0284c7; border:none; border-radius:12px; font-weight:700; cursor:pointer;">▶ Move Bus</button>
     </div>
     <div class="stop-timeline" id="stop-timeline"></div>
-  </div>
-
-  <div class="refresh-bar-fixed">
-    <span id="last-update">Last update: Just now</span>
-    <button class="btn-refresh" onclick="refreshTracking()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-      Refresh
-    </button>
   </div>
 </div>
 
@@ -856,7 +1047,21 @@ function renderResults(from, to) {
   });
 
   if (matched.length === 0) {
-    container.innerHTML = `<div class="no-data"><h3>No Buses Found</h3></div>`;
+    container.innerHTML = `
+      <div class="empty-state-card">
+        <div class="empty-illustration">
+          <div class="empty-window-box">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" style="margin:0 auto 6px; display:block;">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <path d="M14 2v6h6M10 13a1 1 0 100-2 1 1 0 000 2zm4 0a1 1 0 100-2 1 1 0 000 2z"/>
+              <path d="M9 16s1 1.5 3 1.5 3-1.5 3-1.5"/>
+            </svg>
+            <div style="font-size:0.75rem; font-weight:800; color:#2563eb; letter-spacing:0.05em;">NO DATA</div>
+          </div>
+        </div>
+        <div class="empty-state-title">No Buses Available</div>
+        <div class="empty-state-sub">No route options found for this selected route. Please try searching another stop.</div>
+      </div>`;
     return;
   }
 
@@ -879,8 +1084,22 @@ function renderResults(from, to) {
 function openTracking(busId) {
   currentBus = DUMMY_BUSES.find(b => b.id === busId);
   if (!currentBus) return;
-  document.getElementById('track-bus-title').textContent = `${currentBus.busNumber} — ${currentBus.routeNameEn}`;
-  document.getElementById('track-bus-sub').textContent = currentBus.operator;
+
+  const fromMeta = STOPS_META[currentBus.from] || { en: currentBus.from };
+  const toMeta   = STOPS_META[currentBus.to] || { en: currentBus.to };
+
+  const headerOp = document.getElementById('track-header-operator');
+  const headerRt = document.getElementById('track-header-route');
+  if (headerOp) headerOp.textContent = currentBus.operator || 'SBSTC';
+  if (headerRt) headerRt.textContent = `${fromMeta.en} - ${toMeta.en} • MAP VIEW`;
+
+  const sheetTitle = document.getElementById('sheet-journey-title');
+  const sheetDep   = document.getElementById('sheet-dep-city');
+  const sheetArr   = document.getElementById('sheet-arr-city');
+
+  if (sheetTitle) sheetTitle.textContent = `Full journey mapped with ${currentBus.stops.length} stops`;
+  if (sheetDep) sheetDep.textContent = fromMeta.en.split(' ')[0];
+  if (sheetArr) sheetArr.textContent = toMeta.en.split(' ')[0];
 
   // Check if live location is in LocalStorage
   try {
@@ -925,25 +1144,59 @@ function renderStopTimeline(bus) {
 function initMap(bus) {
   const stopsData = bus.stops.map(s => {
     const meta = STOPS_META[s.key];
-    return meta ? { key: s.key, lat: meta.lat, lng: meta.lng, en: meta.en, bn: meta.bn } : null;
+    return meta ? { key: s.key, lat: meta.lat, lng: meta.lng, en: meta.en, bn: meta.bn, arrive: s.arrive } : null;
   }).filter(Boolean);
   const points = stopsData.map(s => [s.lat, s.lng]);
 
   if (leafletMap) { leafletMap.remove(); leafletMap = null; }
-  leafletMap = L.map('map').setView([bus.currentLat, bus.currentLng], 12);
+  leafletMap = L.map('map').setView([bus.currentLat, bus.currentLng], 11);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap'
   }).addTo(leafletMap);
 
-  // Add Stop Pins on Map
+  // Add Custom Screenshot 1 Markers on Map
   stopsData.forEach((st, idx) => {
-    const isTerminus = (idx === 0 || idx === stopsData.length - 1);
-    const pinColor = isTerminus ? '#dc2626' : '#1e40af';
+    const isFirst = (idx === 0);
+    const isLast  = (idx === stopsData.length - 1);
+
+    let htmlContent = '';
+
+    if (isFirst) {
+      // Screenshot 1: Target concentric circle icon + pill label
+      htmlContent = `
+        <div style="display:flex; flex-direction:column; align-items:center;">
+          <div style="background:#ffffff; color:#0f172a; font-size:11px; font-weight:800; padding:4px 10px; border-radius:12px; box-shadow:0 3px 10px rgba(0,0,0,0.2); white-space:nowrap; text-transform:uppercase; letter-spacing:0.04em;">
+            ${st.en.split(' ')[0]}
+          </div>
+          <div style="width:22px; height:22px; background:#ffffff; border:4px solid #0284c7; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-top:4px; box-shadow:0 3px 8px rgba(0,0,0,0.25);">
+            <div style="width:6px; height:6px; background:#0284c7; border-radius:50%;"></div>
+          </div>
+        </div>`;
+    } else if (isLast) {
+      // Screenshot 1: Orange flag icon + pill label with arrival time
+      htmlContent = `
+        <div style="display:flex; flex-direction:column; align-items:center;">
+          <div style="background:#ffffff; color:#0f172a; font-size:11px; font-weight:800; padding:4px 10px; border-radius:12px; box-shadow:0 3px 10px rgba(0,0,0,0.2); white-space:nowrap; text-transform:uppercase; text-align:center;">
+            ${st.en.split(' ')[0]}
+            <div style="color:#0284c7; font-size:10px; font-weight:700;">${st.arrive || '12:00 PM'}</div>
+          </div>
+          <div style="width:24px; height:24px; background:#f97316; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-top:4px; color:white; font-size:12px; box-shadow:0 3px 8px rgba(0,0,0,0.25);">
+            🚩
+          </div>
+        </div>`;
+    } else {
+      // Intermediate stop pin
+      htmlContent = `
+        <div style="background:#0284c7; color:white; font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.25); white-space:nowrap;">
+          📍 ${st.en}
+        </div>`;
+    }
+
     const stopIcon = L.divIcon({
-      className: 'custom-stop-pin',
-      html: `<div style="background:${pinColor}; color:white; font-size:11px; font-weight:700; padding:2px 7px; border-radius:10px; border:2px solid white; box-shadow:0 2px 5px rgba(0,0,0,0.3); white-space:nowrap;">📍 ${st.en}</div>`,
-      iconAnchor: [20, 12]
+      className: 'custom-stop-marker',
+      html: htmlContent,
+      iconAnchor: [30, 20]
     });
     L.marker([st.lat, st.lng], { icon: stopIcon }).addTo(leafletMap).bindPopup(`<b>${st.en}</b><br/>${st.bn}`);
   });
@@ -954,13 +1207,12 @@ function initMap(bus) {
   }
 
   // Bus Marker
-  const busIcon = L.divIcon({ html: '<div style="font-size:2rem; filter: drop-shadow(0px 3px 6px rgba(0,0,0,0.4));">🚌</div>', iconAnchor: [16,16] });
+  const busIcon = L.divIcon({ html: '<div style="font-size:2.2rem; filter: drop-shadow(0px 4px 8px rgba(0,0,0,0.4));">🚌</div>', iconAnchor: [18,18] });
   busMarker = L.marker([bus.currentLat, bus.currentLng], { icon: busIcon }).addTo(leafletMap);
 }
 
 async function drawRoadRoute(mapInstance, points) {
-  // Direct fallback straight polyline while fetching OSRM road geometry
-  const fallbackLine = L.polyline(points, { color: '#1e40af', weight: 4, opacity: 0.6, dashArray: '6, 8' }).addTo(mapInstance);
+  const fallbackLine = L.polyline(points, { color: '#0284c7', weight: 5, opacity: 0.7, dashArray: '6, 8' }).addTo(mapInstance);
   if (points.length < 2) return;
 
   try {
@@ -974,18 +1226,20 @@ async function drawRoadRoute(mapInstance, points) {
       if (mapInstance.hasLayer(fallbackLine)) mapInstance.removeLayer(fallbackLine);
       const roadLayer = L.geoJSON(geojsonRoute, {
         style: {
-          color: '#1e40af',
-          weight: 5,
-          opacity: 0.85,
+          color: '#0284c7',
+          weight: 6,
+          opacity: 0.9,
           lineJoin: 'round'
         }
       }).addTo(mapInstance);
-      mapInstance.fitBounds(roadLayer.getBounds(), { padding: [30, 30] });
+      mapInstance.fitBounds(roadLayer.getBounds(), { padding: [40, 40] });
     }
   } catch (err) {
     console.warn("OSRM routing fallback:", err);
   }
 }
+
+
 
 function updateBusMarkerPosition(lat, lng, statusMsg) {
   if (busMarker && leafletMap) {
