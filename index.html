@@ -17,8 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- Leaflet Map CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
 
   <style>
     /* ─── CSS Variables & Design Tokens ───────────────── */
@@ -755,6 +754,217 @@
       .city-name, .dep-arr-col .city { font-size: 0.92rem; }
       .btn-back-pill, .btn-back-green { width: 38px; height: 38px; }
     }
+
+    /* ─── "WHERE IS MY TRAIN" STYLE TIMELINE DESIGN ───────────────── */
+    .wimt-header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+      color: #ffffff;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 100;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    .wimt-bus-badge {
+      background: #f97316;
+      color: #ffffff;
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.05em;
+    }
+    .sim-badge-top {
+      background: rgba(255,255,255,0.18);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 12px;
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .sim-badge-top:active { transform: scale(0.94); }
+
+    .wimt-status-banner {
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+      color: #ffffff;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      box-shadow: inset 0 -2px 5px rgba(0,0,0,0.1);
+    }
+    .wimt-status-pulse {
+      width: 10px;
+      height: 10px;
+      background: #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(255,255,255,0.7);
+      animation: pulse-ring 1.5s infinite ease-out;
+      flex-shrink: 0;
+    }
+    @keyframes pulse-ring {
+      0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(255,255,255,0); }
+      100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+    }
+    .wimt-status-text { flex: 1; line-height: 1.3; }
+
+    .wimt-summary-card {
+      background: #ffffff;
+      margin: 12px 16px 4px;
+      border-radius: 16px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .wimt-sum-col { display: flex; flex-direction: column; }
+    .wimt-sum-col.arr { align-items: flex-end; }
+    .wimt-cap { font-size: 0.65rem; font-weight: 800; color: #0284c7; letter-spacing: 0.05em; margin-bottom: 2px; }
+    .wimt-cap.arr { color: #f97316; }
+    .wimt-city { font-size: 1rem; font-weight: 800; color: #0f172a; }
+    .wimt-sum-mid { display: flex; flex-direction: column; align-items: center; }
+    .wimt-stops-pill { font-size: 0.7rem; font-weight: 700; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 10px; margin-bottom: 4px; }
+    .wimt-arrow-line { font-size: 0.75rem; color: #94a3b8; letter-spacing: -1px; }
+
+    .wimt-timeline-container {
+      flex: 1;
+      overflow-y: auto;
+      background: #ffffff;
+      padding: 16px 16px 80px;
+    }
+    .wimt-timeline-header {
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: #64748b;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 8px;
+    }
+
+    .wimt-stop-list { position: relative; padding-left: 40px; }
+    .wimt-stop-list::before {
+      content: '';
+      position: absolute;
+      left: 15px;
+      top: 20px;
+      bottom: 28px;
+      width: 4px;
+      background: #e2e8f0;
+      border-radius: 2px;
+    }
+
+    .wimt-item {
+      position: relative;
+      padding: 14px 0 16px 12px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      border-bottom: 1px dashed #f1f5f9;
+      transition: all 0.2s ease;
+    }
+
+    /* PASSED STATE */
+    .wimt-item.state-passed { opacity: 0.75; }
+    .wimt-item.state-passed .wimt-stop-bullet {
+      background: #16a34a;
+      color: #ffffff;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 0 2px #16a34a;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+    }
+    .wimt-item.state-passed .wimt-stop-name-en { color: #64748b; font-weight: 600; text-decoration: line-through; }
+    .wimt-item.state-passed .wimt-stop-name-bn { color: #94a3b8; }
+    .wimt-item.state-passed .wimt-badge-passed {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #16a34a;
+      background: #f0fdf4;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+
+    /* CURRENT STATE (WHERE BUS IS RIGHT NOW) */
+    .wimt-item.state-current {
+      background: linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%);
+      border-radius: 16px;
+      padding: 16px 14px 16px 20px;
+      border: 2px solid #3b82f6;
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.15);
+      margin: 8px 0;
+      opacity: 1 !important;
+    }
+    .wimt-item.state-current .wimt-stop-bullet {
+      background: #f97316;
+      width: 26px;
+      height: 26px;
+      left: -45px;
+      top: 18px;
+      border: 3px solid #ffffff;
+      box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.3);
+      animation: bus-pulse 1.4s infinite ease-in-out;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    @keyframes bus-pulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.3); }
+      50% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(249, 115, 22, 0.1); }
+    }
+    .wimt-item.state-current .wimt-stop-name-en { color: #0f172a; font-size: 1.05rem; font-weight: 800; }
+    .wimt-item.state-current .wimt-stop-name-bn { color: #0284c7; font-weight: 700; }
+    .wimt-item.state-current .wimt-badge-here {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #ffffff;
+      background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+      padding: 4px 10px;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(249, 115, 22, 0.3);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* UPCOMING STATE */
+    .wimt-item.state-upcoming { opacity: 1; }
+    .wimt-item.state-upcoming .wimt-stop-bullet {
+      background: #ffffff;
+      border: 3px solid #0284c7;
+      box-shadow: 0 0 0 2px #e2e8f0;
+    }
+    .wimt-item.state-upcoming .wimt-stop-name-en { color: #0f172a; font-weight: 700; }
+    .wimt-item.state-upcoming .wimt-stop-name-bn { color: #64748b; }
+
+    .wimt-stop-bullet {
+      position: absolute;
+      left: -40px;
+      top: 18px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      z-index: 2;
+    }
+    .wimt-stop-info { flex: 1; }
+    .wimt-stop-time-col { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .wimt-stop-time { font-size: 0.85rem; font-weight: 800; color: #0f172a; }
+    .wimt-stop-dist { font-size: 0.72rem; font-weight: 600; color: #64748b; }
   </style>
 </head>
 <body>
@@ -898,63 +1108,67 @@
   <div class="results-container" id="results-list"></div>
 </div>
 
-<!-- SCREEN 3: LIVE TRACKING (Matching Screenshot 1) -->
+<!-- SCREEN 3: LIVE TRACKING ("WHERE IS MY TRAIN" STYLE STOP TRACKING) -->
 <div id="screen-tracking" class="screen hidden">
-  <!-- Header matching Screenshot 1: White Back Button, Operator Title, Route Subtitle -->
-  <div class="app-header map-view-header">
+  <div class="app-header wimt-header">
     <button class="btn-back-pill" onclick="goBack('screen-results')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
     </button>
-    <div>
-      <h1 id="track-header-operator" style="font-size:1.15rem; font-weight:800;">JGM Express</h1>
-      <span class="sub-bn" id="track-header-route" style="opacity:0.9; font-size:0.75rem;">Jhargram - Kharagpur • MAP VIEW</span>
+    <div style="flex:1;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="wimt-bus-badge" id="track-header-busnum">JGM-01</span>
+        <h1 id="track-header-operator" style="font-size:1.1rem; font-weight:800; color:white;">JGM Paribahan</h1>
+      </div>
+      <span class="sub-bn" id="track-header-route" style="opacity:0.9; font-size:0.75rem; color:#e0f2fe;">Jhargram to Kharagpur • LIVE TRACKING</span>
+    </div>
+    <button class="sim-badge-top" id="btn-sim-toggle" onclick="toggleMovementSimulation()" title="Simulate Movement">▶ Sim</button>
+  </div>
+
+  <!-- LIVE STATUS BANNER ("Bus JGM-01 crossed Binpur Junction — 2 min ago") -->
+  <div class="wimt-status-banner" id="wimt-status-banner">
+    <div class="wimt-status-pulse"></div>
+    <div class="wimt-status-text" id="wimt-status-text">
+      Bus <b>JGM-01</b> crossed <b>Binpur Junction</b> — Live Position
     </div>
   </div>
 
-  <!-- Fullscreen Map Container -->
-  <div class="map-fullscreen-wrapper">
-    <div id="map"></div>
+  <!-- ROUTE SUMMARY HEADER CARD -->
+  <div class="wimt-summary-card">
+    <div class="wimt-sum-col">
+      <span class="wimt-cap">ORIGIN</span>
+      <span class="wimt-city" id="sheet-dep-city">Jhargram</span>
+    </div>
+    <div class="wimt-sum-mid">
+      <span class="wimt-stops-pill" id="sheet-journey-title">5 Stops</span>
+      <div class="wimt-arrow-line">────── 🚌 ──────</div>
+    </div>
+    <div class="wimt-sum-col arr">
+      <span class="wimt-cap arr">DESTINATION</span>
+      <span class="wimt-city" id="sheet-arr-city">Kharagpur</span>
+    </div>
   </div>
 
-  <!-- Screenshot 1 Floating Bottom Sheet Card -->
-  <div class="bottom-sheet-card">
-    <div class="sheet-handle"></div>
-    <div class="sheet-top-meta">
-      <div class="sheet-pin-icon-box">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5" fill="#0284c7"/></svg>
-      </div>
-      <div class="sheet-titles">
-        <h3 id="sheet-journey-title">Full journey mapped with 5 stops</h3>
-        <p>Visualizing real-time route path</p>
-      </div>
+  <!-- "WHERE IS MY TRAIN" VERTICAL TIMELINE CONTAINER -->
+  <div class="wimt-timeline-container">
+    <div class="wimt-timeline-header">
+      <span>ROUTE STOPS TIMELINE</span>
+      <span style="font-size:0.75rem; color:#16a34a; font-weight:700;">● Live Auto-Detect</span>
     </div>
+    <div class="wimt-stop-list" id="stop-timeline">
+      <!-- Stop items rendered dynamically -->
+    </div>
+  </div>
 
-    <!-- Departure -> Arrival Summary Card (Screenshot 1) -->
-    <div class="dep-arr-card">
-      <div class="dep-arr-col">
-        <span class="caption">DEPARTURE</span>
-        <span class="city" id="sheet-dep-city">Jhargram</span>
-      </div>
-      <div class="dep-arr-arrow">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-      </div>
-      <div class="dep-arr-col">
-        <span class="caption arr">ARRIVAL</span>
-        <span class="city" id="sheet-arr-city">Kharagpur</span>
-      </div>
-    </div>
-
-    <!-- Stop Timeline Section -->
-    <div class="timeline-header" style="padding-bottom:10px; font-weight:700; display:flex; justify-content:space-between; align-items:center;">
-      <span>Route Stops & Timeline</span>
-      <button class="sim-badge" id="btn-sim-toggle" onclick="toggleMovementSimulation()" style="font-size:11px; padding:4px 10px; background:#e0f2fe; color:#0284c7; border:none; border-radius:12px; font-weight:700; cursor:pointer;">▶ Move Bus</button>
-    </div>
-    <div class="stop-timeline" id="stop-timeline"></div>
+  <div class="refresh-bar-fixed">
+    <span id="last-update">Last update: Just now</span>
+    <button class="btn-refresh" onclick="refreshTracking()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+      Refresh
+    </button>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 const SUPABASE_URL = 'https://fyenwpoiyibkhmsooiec.supabase.co';
@@ -1179,167 +1393,99 @@ function openTracking(busId) {
   const fromMeta = STOPS_META[currentBus.from] || { en: currentBus.from };
   const toMeta   = STOPS_META[currentBus.to] || { en: currentBus.to };
 
-  const headerOp = document.getElementById('track-header-operator');
-  const headerRt = document.getElementById('track-header-route');
-  if (headerOp) headerOp.textContent = currentBus.operator || 'SBSTC';
-  if (headerRt) headerRt.textContent = `${fromMeta.en} - ${toMeta.en} • MAP VIEW`;
+  const numEl = document.getElementById('track-header-busnum');
+  const opEl  = document.getElementById('track-header-operator');
+  const rtEl  = document.getElementById('track-header-route');
+  if (numEl) numEl.textContent = currentBus.busNumber;
+  if (opEl) opEl.textContent = currentBus.operator || 'JGM Paribahan';
+  if (rtEl) rtEl.textContent = `${fromMeta.en} to ${toMeta.en} • LIVE TRACKING`;
 
-  const sheetTitle = document.getElementById('sheet-journey-title');
-  const sheetDep   = document.getElementById('sheet-dep-city');
-  const sheetArr   = document.getElementById('sheet-arr-city');
+  const titleEl = document.getElementById('sheet-journey-title');
+  const depEl   = document.getElementById('sheet-dep-city');
+  const arrEl   = document.getElementById('sheet-arr-city');
 
-  if (sheetTitle) sheetTitle.textContent = `Full journey mapped with ${currentBus.stops.length} stops`;
-  if (sheetDep) sheetDep.textContent = fromMeta.en.split(' ')[0];
-  if (sheetArr) sheetArr.textContent = toMeta.en.split(' ')[0];
+  if (titleEl) titleEl.textContent = `${currentBus.stops.length} Stops`;
+  if (depEl) depEl.textContent = fromMeta.en.split(' ')[0];
+  if (arrEl) arrEl.textContent = toMeta.en.split(' ')[0];
 
   // Check if live location is in LocalStorage
   try {
     const saved = localStorage.getItem('live_bus_' + currentBus.busNumber);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (parsed.lat && parsed.lng) {
-        currentBus.currentLat = parsed.lat;
-        currentBus.currentLng = parsed.lng;
+      if (parsed.last_passed_stop_sequence !== undefined) {
+        currentBus.last_passed_stop_sequence = Number(parsed.last_passed_stop_sequence);
       }
     }
   } catch(e){}
 
   renderStopTimeline(currentBus);
   showScreen('screen-tracking');
-  setTimeout(() => {
-    initMap(currentBus);
-    fetchLiveBusLocationFromSupabase(currentBus.busNumber);
-  }, 100);
 
+  fetchLiveBusLocationFromSupabase(currentBus.busNumber);
   subscribeToLiveLocationUpdates(currentBus.busNumber);
 }
 
 function renderStopTimeline(bus) {
   const container = document.getElementById('stop-timeline');
+  if (!container || !bus || !bus.stops) return;
+
+  const lastSeq = bus.last_passed_stop_sequence || 1;
+  const currentStopIndex = Math.min(lastSeq, bus.stops.length);
+  
+  // Get last passed stop info
+  const passedStop = bus.stops.find((s, idx) => (s.sequence_no || (idx + 1)) === currentStopIndex) || bus.stops[0];
+  const passedMeta = STOPS_META[passedStop.key] || { en: passedStop.key };
+
+  const bannerText = document.getElementById('wimt-status-text');
+  if (bannerText) {
+    if (currentStopIndex >= bus.stops.length) {
+      bannerText.innerHTML = `Bus <b>${bus.busNumber}</b> has <b>Reached Final Destination</b> at ${passedMeta.en}`;
+    } else {
+      bannerText.innerHTML = `Bus <b>${bus.busNumber}</b> crossed <b>${passedMeta.en}</b> — Live Position`;
+    }
+  }
+
   container.innerHTML = bus.stops.map((stop, idx) => {
+    const seqNo = stop.sequence_no || (idx + 1);
     const meta = STOPS_META[stop.key] || { en: stop.key, bn: stop.key };
+
+    let stateClass = 'upcoming';
+    let badgeHtml = '';
+    let iconHtml = '';
+
+    if (seqNo < currentStopIndex) {
+      stateClass = 'passed';
+      iconHtml = '✓';
+      badgeHtml = `<span class="wimt-badge-passed">✓ Passed</span>`;
+    } else if (seqNo === currentStopIndex) {
+      stateClass = 'current';
+      iconHtml = '🚌';
+      badgeHtml = `<span class="wimt-badge-here">🚌 BUS IS HERE</span>`;
+    } else {
+      stateClass = 'upcoming';
+      iconHtml = '';
+      badgeHtml = `<span style="font-size:0.7rem; color:#64748b;">Upcoming</span>`;
+    }
+
     return `
-    <div class="stop-node state-${stop.state}" style="animation-delay: ${idx * 60}ms;">
-      <div class="stop-bullet"></div>
-      <div class="stop-info">
-        <div class="stop-name-en">${meta.en}</div>
-        <div class="stop-name-bn">${meta.bn}</div>
+    <div class="wimt-item state-${stateClass}" style="animation-delay: ${idx * 50}ms;">
+      <div class="wimt-stop-bullet">${iconHtml}</div>
+      <div class="wimt-stop-info">
+        <div class="wimt-stop-name-en">${meta.en}</div>
+        <div class="wimt-stop-name-bn">${meta.bn}</div>
+        <div style="margin-top:4px;">${badgeHtml}</div>
       </div>
-      <div class="stop-time-col">
-        <div class="stop-time">${stop.arrive}</div>
+      <div class="wimt-stop-time-col">
+        <div class="wimt-stop-time">${stop.arrive || 'Scheduled'}</div>
+        <div class="wimt-stop-dist">📏 ${stop.dist || '0 km'}</div>
       </div>
     </div>`;
   }).join('');
-}
 
-function initMap(bus) {
-  const stopsData = bus.stops.map(s => {
-    const meta = STOPS_META[s.key];
-    return meta ? { key: s.key, lat: meta.lat, lng: meta.lng, en: meta.en, bn: meta.bn, arrive: s.arrive } : null;
-  }).filter(Boolean);
-  const points = stopsData.map(s => [s.lat, s.lng]);
-
-  if (leafletMap) { leafletMap.remove(); leafletMap = null; }
-  leafletMap = L.map('map').setView([bus.currentLat, bus.currentLng], 11);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap'
-  }).addTo(leafletMap);
-
-  // Add Custom Screenshot 1 Markers on Map
-  stopsData.forEach((st, idx) => {
-    const isFirst = (idx === 0);
-    const isLast  = (idx === stopsData.length - 1);
-
-    let htmlContent = '';
-
-    if (isFirst) {
-      // Screenshot 1: Target concentric circle icon + pill label
-      htmlContent = `
-        <div style="display:flex; flex-direction:column; align-items:center;">
-          <div style="background:#ffffff; color:#0f172a; font-size:11px; font-weight:800; padding:4px 10px; border-radius:12px; box-shadow:0 3px 10px rgba(0,0,0,0.2); white-space:nowrap; text-transform:uppercase; letter-spacing:0.04em;">
-            ${st.en.split(' ')[0]}
-          </div>
-          <div style="width:22px; height:22px; background:#ffffff; border:4px solid #0284c7; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-top:4px; box-shadow:0 3px 8px rgba(0,0,0,0.25);">
-            <div style="width:6px; height:6px; background:#0284c7; border-radius:50%;"></div>
-          </div>
-        </div>`;
-    } else if (isLast) {
-      // Screenshot 1: Orange flag icon + pill label with arrival time
-      htmlContent = `
-        <div style="display:flex; flex-direction:column; align-items:center;">
-          <div style="background:#ffffff; color:#0f172a; font-size:11px; font-weight:800; padding:4px 10px; border-radius:12px; box-shadow:0 3px 10px rgba(0,0,0,0.2); white-space:nowrap; text-transform:uppercase; text-align:center;">
-            ${st.en.split(' ')[0]}
-            <div style="color:#0284c7; font-size:10px; font-weight:700;">${st.arrive || '12:00 PM'}</div>
-          </div>
-          <div style="width:24px; height:24px; background:#f97316; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-top:4px; color:white; font-size:12px; box-shadow:0 3px 8px rgba(0,0,0,0.25);">
-            🚩
-          </div>
-        </div>`;
-    } else {
-      // Intermediate stop pin
-      htmlContent = `
-        <div style="background:#0284c7; color:white; font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.25); white-space:nowrap;">
-          📍 ${st.en}
-        </div>`;
-    }
-
-    const stopIcon = L.divIcon({
-      className: 'custom-stop-marker',
-      html: htmlContent,
-      iconAnchor: [30, 20]
-    });
-    L.marker([st.lat, st.lng], { icon: stopIcon }).addTo(leafletMap).bindPopup(`<b>${st.en}</b><br/>${st.bn}`);
-  });
-
-  // Draw Road Polyline using OSRM Routing Engine (Follows actual roads!)
-  if (points.length > 1) {
-    drawRoadRoute(leafletMap, points);
-  }
-
-  // Bus Marker
-  const busIcon = L.divIcon({ html: '<div style="font-size:2.2rem; filter: drop-shadow(0px 4px 8px rgba(0,0,0,0.4));">🚌</div>', iconAnchor: [18,18] });
-  busMarker = L.marker([bus.currentLat, bus.currentLng], { icon: busIcon }).addTo(leafletMap);
-}
-
-async function drawRoadRoute(mapInstance, points) {
-  const fallbackLine = L.polyline(points, { color: '#0284c7', weight: 5, opacity: 0.7, dashArray: '6, 8' }).addTo(mapInstance);
-  if (points.length < 2) return;
-
-  try {
-    const coordString = points.map(p => `${p[1]},${p[0]}`).join(';');
-    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&geometries=geojson`;
-    const response = await fetch(osrmUrl);
-    const data = await response.json();
-
-    if (data.code === 'Ok' && data.routes && data.routes[0]) {
-      const geojsonRoute = data.routes[0].geometry;
-      if (mapInstance.hasLayer(fallbackLine)) mapInstance.removeLayer(fallbackLine);
-      const roadLayer = L.geoJSON(geojsonRoute, {
-        style: {
-          color: '#0284c7',
-          weight: 6,
-          opacity: 0.9,
-          lineJoin: 'round'
-        }
-      }).addTo(mapInstance);
-      mapInstance.fitBounds(roadLayer.getBounds(), { padding: [40, 40] });
-    }
-  } catch (err) {
-    console.warn("OSRM routing fallback:", err);
-  }
-}
-
-
-
-function updateBusMarkerPosition(lat, lng, statusMsg) {
-  if (busMarker && leafletMap) {
-    busMarker.setLatLng([lat, lng]);
-    leafletMap.panTo([lat, lng]);
-  }
   const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const el = document.getElementById('last-update');
-  if (el) el.textContent = `Last update: ${timeStr}` + (statusMsg ? ` (${statusMsg})` : '');
+  if (el) el.textContent = `Last update: ${timeStr}`;
 }
 
 async function fetchLiveBusLocationFromSupabase(busNum) {
@@ -1348,8 +1494,9 @@ async function fetchLiveBusLocationFromSupabase(busNum) {
     const { data: buses } = await supabaseClient.from('buses').select('id, bus_number, bus_locations(*)').eq('bus_number', busNum).limit(1);
     if (buses && buses.length > 0 && buses[0].bus_locations) {
       const loc = Array.isArray(buses[0].bus_locations) ? buses[0].bus_locations[0] : buses[0].bus_locations;
-      if (loc && loc.lat && loc.lng) {
-        updateBusMarkerPosition(Number(loc.lat), Number(loc.lng), 'Live DB');
+      if (loc && loc.last_passed_stop_sequence !== undefined && currentBus) {
+        currentBus.last_passed_stop_sequence = Number(loc.last_passed_stop_sequence);
+        renderStopTimeline(currentBus);
       }
     }
   } catch(e){
@@ -1359,40 +1506,47 @@ async function fetchLiveBusLocationFromSupabase(busNum) {
 
 let activeSupabaseChannel = null;
 function subscribeToLiveLocationUpdates(busNum) {
-  // 1. Listen to Local BroadcastChannel for cross-tab live sync
+  // 1. Listen to BroadcastChannel
   if (window.BroadcastChannel) {
     try {
       const ch = new BroadcastChannel('citybus_live_channel');
       ch.onmessage = (event) => {
         const data = event.data;
-        if (data && data.bus_number === busNum && data.lat && data.lng) {
-          updateBusMarkerPosition(data.lat, data.lng, 'Live Driver Broadcast');
+        if (data && data.bus_number === busNum && currentBus) {
+          if (data.last_passed_stop_sequence !== undefined) {
+            currentBus.last_passed_stop_sequence = Number(data.last_passed_stop_sequence);
+            renderStopTimeline(currentBus);
+          }
         }
       };
     } catch(e){}
   }
 
-  // 2. Listen to LocalStorage events
+  // 2. Listen to LocalStorage
   window.addEventListener('storage', (e) => {
-    if (e.key === 'live_bus_' + busNum && e.newValue) {
+    if (e.key === 'live_bus_' + busNum && e.newValue && currentBus) {
       try {
         const parsed = JSON.parse(e.newValue);
-        if (parsed.lat && parsed.lng) {
-          updateBusMarkerPosition(parsed.lat, parsed.lng, 'Local Storage Sync');
+        if (parsed.last_passed_stop_sequence !== undefined) {
+          currentBus.last_passed_stop_sequence = Number(parsed.last_passed_stop_sequence);
+          renderStopTimeline(currentBus);
         }
       } catch(err){}
     }
   });
 
-  // 3. Listen to Supabase Realtime DB changes
+  // 3. Listen to Supabase Realtime
   if (supabaseClient) {
     if (activeSupabaseChannel) supabaseClient.removeChannel(activeSupabaseChannel);
     activeSupabaseChannel = supabaseClient
       .channel('public:bus_locations_' + busNum)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bus_locations' }, payload => {
         const loc = payload.new;
-        if (loc && loc.lat && loc.lng) {
-          updateBusMarkerPosition(Number(loc.lat), Number(loc.lng), 'DB Realtime');
+        if (loc && currentBus) {
+          if (loc.last_passed_stop_sequence !== undefined) {
+            currentBus.last_passed_stop_sequence = Number(loc.last_passed_stop_sequence);
+            renderStopTimeline(currentBus);
+          }
         }
       })
       .subscribe();
@@ -1401,16 +1555,13 @@ function subscribeToLiveLocationUpdates(busNum) {
 
 function toggleMovementSimulation() {
   if (simInterval) { clearInterval(simInterval); simInterval = null; return; }
-  let i = 0;
+  let seq = (currentBus ? currentBus.last_passed_stop_sequence || 1 : 1);
   simInterval = setInterval(() => {
-    i = (i + 1) % currentBus.stops.length;
-    const stop = currentBus.stops[i];
-    const meta = STOPS_META[stop.key];
-    if (meta && busMarker) {
-      busMarker.setLatLng([meta.lat, meta.lng]);
-      leafletMap.panTo([meta.lat, meta.lng]);
-    }
-  }, 4000);
+    if (!currentBus) return;
+    seq = (seq % currentBus.stops.length) + 1;
+    currentBus.last_passed_stop_sequence = seq;
+    renderStopTimeline(currentBus);
+  }, 3000);
 }
 
 function refreshTracking() {

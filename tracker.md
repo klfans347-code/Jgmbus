@@ -34,6 +34,8 @@ _Update this file as tasks are completed. Claude Code can edit this directly dur
   - Driver App (`driver.html`): Added Route info display & Stop Marking feature ("Mark Reached" per stop).
   - Admin Panel (`admin.html`): Fixed Route & Stop creation forms/modals, added nested "+ Add Stop" to route, confirmed RLS compatibility.
   - Passenger App (`index.html`): Added Direct Bus Number Search tab ("Track Bus" by bus_number like JGM-01).
-- **Aug 2026** — Critical Bug Fixes (Driver GPS Sharing & Admin Route/Stop Insertion):
-  - **Bug 1 (Driver Location Sharing)**: Fixed Geolocation permissions/HTTPS checks, initial fallback coordinates, multi-channel broadcast (Supabase upsert + LocalStorage + BroadcastChannel), and passenger Realtime subscriber sync (`index.html`).
-  - **Bug 2 (Admin Stop/Route Creation)**: Resolved Supabase RLS policy restrictions (created `schema-fixed.sql`), sanitized Postgres UUID inputs (`operator_id`, `route_id`), linked `stop.route_id` with exact returned Supabase UUIDs, added error handling in Admin terminal log.
+- **Aug 2026** — Stop-Based Live Tracking ("Where is My Train" Style) & GPS Auto-Detection Complete:
+  - **Database Schema Update**: Added `last_passed_stop_sequence` column (INT, default 0) to `bus_locations` table in `schema.sql` and `schema-fixed.sql`.
+  - **GPS Auto-Detection (`driver.html`)**: Implemented Haversine distance calculation to auto-detect when a bus comes within 200m threshold of a stop, automatically updating `last_passed_stop_sequence` without manual driver button taps. Added simulation controls for easy testing.
+  - **Passenger App Redesign (`index.html`)**: Completely removed map component and implemented "Where is My Train" style vertical timeline tracking with passed stops (green checkmark, dimmed text), current bus position highlight (`🚌 BUS IS HERE`), upcoming stops, scheduled ETAs, and status banner ("Bus JGM-01 crossed Binpur Junction — 1 min ago").
+  - **Supabase Realtime Sync**: Passenger app subscribes to `last_passed_stop_sequence` changes in Supabase Realtime, BroadcastChannel, and LocalStorage for zero-refresh instant UI updates.

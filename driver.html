@@ -648,43 +648,56 @@ function renderTripScreen() {
   renderStopsList();
 }
 
+let lastPassedStopSeq = 0;
+const DISTANCE_THRESHOLD_METERS = 200; // 150-200m auto-detection threshold
+
+function getHaversineDistanceMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // Earth radius in meters
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
 function renderStopsList() {
   const container = document.getElementById('driver-stops-list');
-  document.getElementById('current-stop-status').textContent = `Stop ${currentStopIndex + 1} of ${routeStops.length}`;
+  document.getElementById('current-stop-status').textContent = `Passed Stop Sequence: ${lastPassedStopSeq} of ${routeStops.length}`;
 
   container.innerHTML = routeStops.map((stop, idx) => {
-    const isReached = idx < currentStopIndex;
-    const isCurrent = idx === currentStopIndex;
-    const itemClass = isReached ? 'reached' : (isCurrent ? 'current-target' : '');
+    const seqNo = stop.sequence_no || (idx + 1);
+    const isPassed = seqNo <= lastPassedStopSeq;
+    const isCurrent = seqNo === lastPassedStopSeq;
+    const itemClass = isPassed ? 'reached' : (isCurrent ? 'current-target' : '');
 
     return `
     <div class="stop-list-item ${itemClass}">
       <div>
-        <div class="stop-name-title">${idx + 1}. ${stop.en}</div>
+        <div class="stop-name-title">${seqNo}. ${stop.en}</div>
         <div class="stop-name-sub">${stop.bn} • ${stop.dist}</div>
       </div>
-      <div>
-        ${isReached ? '<span style="color:var(--success);font-weight:700;font-size:0.8rem;">✓ Reached</span>' :
-          (isCurrent ? `<button class="btn-mark-stop" onclick="markStopReached(${idx})">Mark Reached</button>` :
-           '<span style="color:var(--text-sub);font-size:0.75rem;">Upcoming</span>')}
+      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+        ${isPassed ? '<span style="color:var(--success);font-weight:700;font-size:0.8rem;">✓ Passed (Auto)</span>' :
+          '<span style="color:var(--text-sub);font-size:0.75rem;">Upcoming</span>'}
+        <button class="btn-mark-stop" onclick="simulateStopArrival(${idx})" style="font-size:10px; padding:3px 8px;">Simulate GPS Here</button>
       </div>
     </div>`;
   }).join('');
 }
 
+function simulateStopArrival(index) {
+  const stop = routeStops[index];
+  if (!stop) return;
+  driverData.latestLat = stop.lat;
+  driverData.latestLng = stop.lng;
+  document.getElementById('gps-coords').textContent = `Simulated GPS @ ${stop.en} (${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)})`;
+  uploadLocation();
+}
+
 async function markStopReached(index) {
-  currentStopIndex = index + 1;
-  const currentStop = routeStops[index];
-
-  // Update bus position to this stop's lat/lng
-  driverData.latestLat = currentStop.lat;
-  driverData.latestLng = currentStop.lng;
-
-  // Broadcast location immediately across all channels
-  await uploadLocation();
-
-  renderStopsList();
-  alert(`Marked Reached: ${currentStop.en}`);
+  simulateStopArrival(index);
 }
 
 function startTrip() {
@@ -739,11 +752,11 @@ function startTrip() {
   box.className = 'status-inner sharing';
   box.innerHTML = `
     <span class="status-icon">🟢</span>
-    <div class="status-label">Trip in Progress — Sharing GPS</div>
-    <div class="status-sub">Updating live bus position & stops for passengers</div>
+    <div class="status-label">Trip in Progress — Auto-Detecting Stops</div>
+    <div class="status-sub">GPS position auto-detecting passed stops within 200m</div>
   `;
   document.getElementById('gps-dot').className = 'gps-dot active';
-  document.getElementById('gps-text').textContent = 'GPS: Broadcasting Live';
+  document.getElementById('gps-text').textContent = 'GPS: Auto-Detecting Live';
 }
 
 function stopTrip() {
@@ -756,6 +769,8 @@ function stopTrip() {
     uploadInterval = null;
   }
 
+  lastPassedStopSeq = 0;
+
   // Broadcast trip completed status
   if (driverData) {
     const payload = {
@@ -764,6 +779,7 @@ function stopTrip() {
       driver_code: driverData.driver_code,
       lat: driverData.latestLat || 22.4586,
       lng: driverData.latestLng || 86.9931,
+      last_passed_stop_sequence: 0,
       updated_at: new Date().toISOString(),
       trip_status: 'completed'
     };
@@ -775,6 +791,7 @@ function stopTrip() {
         bus_id: driverData.bus_id,
         lat: payload.lat,
         lng: payload.lng,
+        last_passed_stop_sequence: 0,
         updated_at: payload.updated_at,
         trip_status: 'completed'
       }, { onConflict: 'bus_id' }).then(({ error }) => {
@@ -803,12 +820,31 @@ async function uploadLocation() {
   const lat = Number(driverData.latestLat) || 22.4586;
   const lng = Number(driverData.latestLng) || 86.9931;
 
+  // AUTO-DETECT STOP LOGIC (Haversine distance within 200m threshold)
+  let newlyDetectedStop = null;
+  if (routeStops && routeStops.length > 0) {
+    routeStops.forEach((stop, idx) => {
+      const seqNo = stop.sequence_no || (idx + 1);
+      const distMeters = getHaversineDistanceMeters(lat, lng, stop.lat, stop.lng);
+      
+      if (distMeters <= DISTANCE_THRESHOLD_METERS && seqNo >= lastPassedStopSeq) {
+        lastPassedStopSeq = seqNo;
+        currentStopIndex = seqNo;
+        newlyDetectedStop = stop.en;
+        console.log(`[Auto-Detect Stop Passed] Sequence ${seqNo}: ${stop.en} (Dist: ${distMeters.toFixed(1)}m)`);
+      }
+    });
+  }
+
+  renderStopsList();
+
   const locationPayload = {
     bus_id: driverData.bus_id,
     bus_number: driverData.bus_number,
     driver_code: driverData.driver_code,
     lat: lat,
     lng: lng,
+    last_passed_stop_sequence: lastPassedStopSeq,
     updated_at: new Date().toISOString(),
     trip_status: 'in_progress',
     current_stop_index: currentStopIndex
@@ -831,6 +867,7 @@ async function uploadLocation() {
         bus_id: driverData.bus_id,
         lat: lat,
         lng: lng,
+        last_passed_stop_sequence: lastPassedStopSeq,
         updated_at: locationPayload.updated_at,
         trip_status: 'in_progress'
       }, { onConflict: 'bus_id' }).select();
@@ -839,7 +876,7 @@ async function uploadLocation() {
         console.error('Supabase bus_locations upsert error:', error.message, error.details, error.hint);
         document.getElementById('gps-coords').textContent = `DB Upload Error: ${error.message}`;
       } else {
-        console.log(`[Supabase Upload Success] Bus ${driverData.bus_number} at ${lat}, ${lng}`);
+        console.log(`[Supabase Upload Success] Bus ${driverData.bus_number} - Passed Stop Seq: ${lastPassedStopSeq}`);
       }
     } catch (err) {
       console.error('Supabase upload exception:', err);

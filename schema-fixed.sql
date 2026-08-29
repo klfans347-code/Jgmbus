@@ -37,9 +37,12 @@ CREATE TABLE IF NOT EXISTS public.bus_locations (
     bus_id UUID PRIMARY KEY REFERENCES public.buses(id) ON DELETE CASCADE,
     lat NUMERIC(9,6) NOT NULL,
     lng NUMERIC(9,6) NOT NULL,
+    last_passed_stop_sequence INT DEFAULT 0,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     trip_status TEXT DEFAULT 'not_started' CHECK (trip_status IN ('not_started', 'in_progress', 'completed'))
 );
+
+ALTER TABLE public.bus_locations ADD COLUMN IF NOT EXISTS last_passed_stop_sequence INT DEFAULT 0;
 
 ALTER TABLE public.operators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.routes ENABLE ROW LEVEL SECURITY;
