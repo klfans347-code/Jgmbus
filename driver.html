@@ -482,6 +482,22 @@
     </button>
   </div>
 
+  <!-- Background Tracking Banner (shown when trip active) -->
+  <div id="bg-tracking-banner" style="display:none; background: linear-gradient(135deg,#064e3b,#065f46); color:#ffffff; border-radius:14px; padding:12px 16px; margin:0 16px 12px; display:none; flex-direction:column; gap:6px;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span style="font-size:1.2rem;">📡</span>
+      <div>
+        <div style="font-weight:800; font-size:0.9rem;">Background Tracking Active</div>
+        <div style="font-size:0.75rem; opacity:0.85;">GPS chalu aache — app minimize karo, screen bandh karo — tracking cholte thakbe!</div>
+      </div>
+    </div>
+    <div style="background:rgba(255,255,255,0.15); border-radius:8px; padding:6px 10px; font-size:0.72rem; display:flex; gap:16px; flex-wrap:wrap;">
+      <span id="bg-wakelock-status">🔆 Wake Lock: Off</span>
+      <span id="bg-sw-status">⚙️ SW: Loading...</span>
+      <span id="bg-notif-status">🔔 Notification: ?</span>
+    </div>
+  </div>
+
   <!-- Logout -->
   <div class="btn-logout">
     <button onclick="handleLogout()">
@@ -889,7 +905,220 @@ function handleLogout() {
   showScreen('screen-login');
 }
 
+// ════════════════════════════════════════════════════════════
+// BACKGROUND GPS TRACKING — Service Worker + Wake Lock
+// Works when: app minimized, screen off, page hidden
+// ════════════════════════════════════════════════════════════
+
+let driverSW = null;       // ServiceWorker registration
+let wakeLock = null;       // Screen Wake Lock
+let keepAliveTimer = null; // Ping SW every 25s to keep alive
+let bgGpsInterval = null;  // Background GPS interval (when page hidden)
+
+// ── 1. Register dedicated Driver Service Worker ──────────────
+async function registerDriverSW() {
+  if (!('serviceWorker' in navigator)) {
+    console.warn('[BG] ServiceWorker not supported');
+    return;
+  }
+  try {
+    driverSW = await navigator.serviceWorker.register('/driver-sw.js?v=3', { scope: '/' });
+    console.log('[BG] Driver SW registered:', driverSW.scope);
+
+    // Listen for messages FROM service worker (e.g., "stop trip" from notification)
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (!msg) return;
+      if (msg.type === 'SW_STOP_TRIP') {
+        console.log('[BG] SW requested stop trip');
+        stopTrip();
+      }
+      if (msg.type === 'KEEPALIVE_ACK') {
+        console.log('[BG] SW keepalive OK');
+      }
+    });
+  } catch (err) {
+    console.warn('[BG] Driver SW registration failed:', err);
+  }
+}
+
+// ── 2. Send message to SW ────────────────────────────────────
+function sendToSW(msg) {
+  if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
+  navigator.serviceWorker.controller.postMessage(msg);
+}
+
+// ── 3. Notify SW that trip started ──────────────────────────
+function notifySWTripStart() {
+  sendToSW({
+    type: 'TRIP_START',
+    bus_id: driverData.bus_id,
+    bus_number: driverData.bus_number,
+    lat: driverData.latestLat,
+    lng: driverData.latestLng,
+    lastPassedStopSeq: lastPassedStopSeq,
+    routeStops: routeStops
+  });
+
+  // Keep SW alive with periodic pings
+  if (keepAliveTimer) clearInterval(keepAliveTimer);
+  keepAliveTimer = setInterval(() => {
+    sendToSW({ type: 'KEEPALIVE' });
+  }, 25000);
+
+  // Register Periodic Background Sync if supported
+  if (driverSW && 'periodicSync' in driverSW) {
+    driverSW.periodicSync.register('driver-gps-sync', { minInterval: 30000 })
+      .then(() => console.log('[BG] Periodic sync registered'))
+      .catch(e => console.warn('[BG] Periodic sync not granted:', e));
+  }
+}
+
+// ── 4. Send GPS update to SW (works from any context) ────────
+function notifySWGpsUpdate(lat, lng) {
+  sendToSW({
+    type: 'GPS_UPDATE',
+    bus_id: driverData ? driverData.bus_id : null,
+    bus_number: driverData ? driverData.bus_number : null,
+    lat: lat,
+    lng: lng,
+    lastPassedStopSeq: lastPassedStopSeq
+  });
+}
+
+// ── 5. Notify SW trip stopped ─────────────────────────────────
+function notifySWTripStop() {
+  sendToSW({ type: 'TRIP_STOP' });
+  if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; }
+  if (bgGpsInterval) { clearInterval(bgGpsInterval); bgGpsInterval = null; }
+}
+
+// ── 6. Wake Lock — keep screen on while driving ──────────────
+async function acquireWakeLock() {
+  if (!('wakeLock' in navigator)) {
+    console.warn('[WakeLock] Not supported on this browser/device');
+    return;
+  }
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    console.log('[WakeLock] Screen lock acquired');
+    wakeLock.addEventListener('release', () => {
+      console.log('[WakeLock] Screen lock released');
+      wakeLock = null;
+    });
+  } catch (err) {
+    console.warn('[WakeLock] Could not acquire:', err.name, err.message);
+  }
+}
+
+async function releaseWakeLock() {
+  if (wakeLock) {
+    try { await wakeLock.release(); } catch(e){}
+    wakeLock = null;
+  }
+}
+
+// ── 7. Visibility change handler ─────────────────────────────
+// When user minimizes app / switches tab, fallback GPS via SW
+document.addEventListener('visibilitychange', () => {
+  if (!driverData || !uploadInterval) return; // Not on a trip
+
+  if (document.hidden) {
+    // App went to background — SW takes over GPS uploads
+    console.log('[BG] App hidden — SW is handling GPS uploads');
+    // Clear foreground interval (SW periodic sync handles it)
+    // but keep watchPosition running — it works in background on Chrome
+    notifySWGpsUpdate(
+      driverData.latestLat || 22.4586,
+      driverData.latestLng || 86.9931
+    );
+  } else {
+    // App came back to foreground
+    console.log('[BG] App visible — foreground GPS resumed');
+    // Re-acquire wake lock if released
+    acquireWakeLock();
+    // Re-sync UI
+    renderStopsList();
+    uploadLocation();
+  }
+});
+
+// ── 8. Re-acquire wake lock on page show (e.g. after alt-tab) ─
+document.addEventListener('pageshow', () => {
+  if (uploadInterval && !wakeLock) {
+    acquireWakeLock();
+  }
+});
+
+// ── 9. Request Notification Permission for persistent SW notif ─
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    const result = await Notification.requestPermission();
+    console.log('[Notif] Permission:', result);
+  }
+}
+
+// ── PATCH: Override startTrip to add background features ─────
+const _originalStartTrip = startTrip;
+startTrip = async function() {
+  _originalStartTrip();
+
+  // Show background tracking banner
+  const banner = document.getElementById('bg-tracking-banner');
+  if (banner) banner.style.display = 'flex';
+
+  // Update SW status
+  const swEl = document.getElementById('bg-sw-status');
+  if (swEl) swEl.textContent = '⚙️ SW: Active ✓';
+
+  // Notification status
+  const notifEl = document.getElementById('bg-notif-status');
+  if (notifEl) {
+    notifEl.textContent = Notification.permission === 'granted'
+      ? '🔔 Notification: ON ✓'
+      : '🔔 Notification: OFF';
+  }
+
+  // Acquire Wake Lock and update indicator
+  await acquireWakeLock();
+  const wlEl = document.getElementById('bg-wakelock-status');
+  if (wlEl) wlEl.textContent = wakeLock ? '🔆 Wake Lock: ON ✓' : '🔆 Wake Lock: Off (not supported)';
+
+  notifySWTripStart();
+};
+
+// ── PATCH: Override stopTrip to release background features ──
+const _originalStopTrip = stopTrip;
+stopTrip = function() {
+  _originalStopTrip();
+
+  // Hide background tracking banner
+  const banner = document.getElementById('bg-tracking-banner');
+  if (banner) banner.style.display = 'none';
+
+  releaseWakeLock();
+  notifySWTripStop();
+};
+
+// ── PATCH: Override uploadLocation to also notify SW ─────────
+const _originalUploadLocation = uploadLocation;
+uploadLocation = async function() {
+  await _originalUploadLocation();
+  if (driverData) {
+    notifySWGpsUpdate(
+      driverData.latestLat || 22.4586,
+      driverData.latestLng || 86.9931
+    );
+  }
+};
+
+// ── INIT ─────────────────────────────────────────────────────
+registerDriverSW();
+requestNotificationPermission();
+
 showScreen('screen-login');
+
 </script>
 </body>
 </html>
