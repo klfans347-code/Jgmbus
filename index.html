@@ -1129,8 +1129,7 @@ const DUMMY_BUSES = [
 ];
 
 let currentBus = null;
-let leafletMap = null;
-let busMarker  = null;
+let activeSupabaseChannel = null;
 
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
@@ -1138,6 +1137,12 @@ function showScreen(id) {
 }
 
 function goBack(id) {
+  if (id !== 'screen-tracking' && activeSupabaseChannel && supabaseClient) {
+    try {
+      supabaseClient.removeChannel(activeSupabaseChannel);
+      activeSupabaseChannel = null;
+    } catch(e){}
+  }
   showScreen(id);
 }
 
@@ -1163,11 +1168,6 @@ function quickRoute(f, t) {
 function findBus() {
   const fromVal = document.getElementById('from-stop').value;
   const toVal   = document.getElementById('to-stop').value;
-  if (!fromVal || !toVal) {
-    renderResults('', '');
-    showScreen('screen-results');
-    return;
-  }
   renderResults(fromVal, toVal);
   showScreen('screen-results');
 }
@@ -1182,38 +1182,64 @@ async function directBusSearch() {
     return;
   }
 
-  // Check if bus exists in local dummy list
+  // Check if bus exists in local list
   let bus = DUMMY_BUSES.find(b => b.busNumber.toUpperCase() === num);
 
-  // If not found in dummy list, query Supabase database
+  // If not found in memory, query Supabase database
   if (!bus && supabaseClient) {
     try {
-      const { data } = await supabaseClient.from('buses').select('*').eq('bus_number', num).limit(1);
-      if (data && data.length > 0) {
-        const b = data[0];
+      const { data: buses } = await supabaseClient.from('buses').select('id, bus_number, route_id, routes(route_name, route_code), operators(name)').eq('bus_number', num).limit(1);
+      if (buses && buses.length > 0) {
+        const b = buses[0];
+        const rName = b.routes ? b.routes.route_name : `${num} Express`;
+        const opName = b.operators ? b.operators.name : 'JGM Paribahan';
+
+        // Fetch stops for this route
+        let busStops = [
+          { key: 'jhargram', dist: '0 km', arrive: '10:30 AM', sequence_no: 1 },
+          { key: 'binpur', dist: '15 km', arrive: '11:05 AM', sequence_no: 2 },
+          { key: 'kharagpur', dist: '56 km', arrive: '12:15 PM', sequence_no: 3 }
+        ];
+
+        if (b.route_id) {
+          const { data: stops } = await supabaseClient.from('stops').select('*').eq('route_id', b.route_id).order('sequence_no');
+          if (stops && stops.length > 0) {
+            busStops = stops.map(s => ({
+              key: s.stop_name.toLowerCase().replace(/\s+/g, ''),
+              en: s.stop_name,
+              bn: s.stop_name,
+              dist: `${s.distance_km || 0} km`,
+              arrive: 'Scheduled',
+              sequence_no: s.sequence_no
+            }));
+          }
+        }
+
         bus = {
           id: b.id || 'bus-' + num.toLowerCase(),
           busNumber: b.bus_number,
-          routeCode: 'R-DB',
-          routeNameEn: `${b.bus_number} — Express Route`,
-          routeNameBn: `${b.bus_number} — এক্সপ্রেস রুট`,
-          operator: 'JGM Paribahan',
-          from: 'jhargram', to: 'kharagpur',
-          status: 'running', nextDeparture: '11:30 AM', viaEn: 'Via Jhargram, Binpur',
-          stops: [
-            { key: 'jhargram', dist: '0 km', arrive: '10:30 AM', state: 'passed' },
-            { key: 'binpur', dist: '15 km', arrive: '11:05 AM', state: 'current' },
-            { key: 'kharagpur', dist: '56 km', arrive: '12:15 PM', state: 'upcoming' }
-          ],
+          routeCode: b.routes ? b.routes.route_code : 'R-DB',
+          routeNameEn: rName,
+          routeNameBn: rName,
+          operator: opName,
+          from: busStops[0].key,
+          to: busStops[busStops.length - 1].key,
+          status: 'running',
+          nextDeparture: '11:30 AM',
+          viaEn: `Via ${busStops.map(s => s.en || s.key).slice(0, 3).join(', ')}`,
+          stops: busStops,
+          last_passed_stop_sequence: 0,
           currentLat: 22.4800, currentLng: 87.0700,
           statusMsgEn: `Live position for ${b.bus_number}`
         };
         DUMMY_BUSES.push(bus);
       }
-    } catch(e){}
+    } catch(e){
+      console.warn('Supabase direct bus search error:', e);
+    }
   }
 
-  // If still not found, create dynamic bus tracking object so ANY bus number works without error
+  // If still not found, create dynamic bus tracking object so ANY bus number works seamlessly
   if (!bus) {
     bus = {
       id: 'bus-' + num.toLowerCase().replace(/[^a-z0-9]/g, ''),
@@ -1225,12 +1251,13 @@ async function directBusSearch() {
       from: 'jhargram', to: 'kharagpur',
       status: 'running', nextDeparture: '11:30 AM', viaEn: 'Via Lalgarh, Binpur, Sankrail',
       stops: [
-        { key: 'jhargram', dist: '0 km', arrive: '10:30 AM', state: 'passed' },
-        { key: 'lalgarh', dist: '8 km', arrive: '10:48 AM', state: 'passed' },
-        { key: 'binpur', dist: '15 km', arrive: '11:05 AM', state: 'current' },
-        { key: 'sankrail', dist: '32 km', arrive: '11:35 AM', state: 'upcoming' },
-        { key: 'kharagpur', dist: '56 km', arrive: '12:15 PM', state: 'upcoming' }
+        { key: 'jhargram', dist: '0 km', arrive: '10:30 AM', sequence_no: 1 },
+        { key: 'lalgarh', dist: '8 km', arrive: '10:48 AM', sequence_no: 2 },
+        { key: 'binpur', dist: '15 km', arrive: '11:05 AM', sequence_no: 3 },
+        { key: 'sankrail', dist: '32 km', arrive: '11:35 AM', sequence_no: 4 },
+        { key: 'kharagpur', dist: '56 km', arrive: '12:15 PM', sequence_no: 5 }
       ],
+      last_passed_stop_sequence: 0,
       currentLat: 22.4800, currentLng: 87.0700,
       statusMsgEn: `Live tracking ${num}`
     };
@@ -1242,9 +1269,29 @@ async function directBusSearch() {
 
 function renderResults(from, to) {
   const container = document.getElementById('results-list');
+
+  // Update Summary Header on Screen 2
+  const fromMeta = STOPS_META[from] || { en: from ? from.charAt(0).toUpperCase() + from.slice(1) : 'All', bn: from ? from : 'সব' };
+  const toMeta   = STOPS_META[to] || { en: to ? to.charAt(0).toUpperCase() + to.slice(1) : 'Destinations', bn: to ? to : 'গন্তব্য' };
+  
+  const sumFromEn = document.getElementById('summary-from-en');
+  const sumToEn   = document.getElementById('summary-to-en');
+  const sumRtBn   = document.getElementById('summary-route-bn');
+  
+  if (sumFromEn) sumFromEn.textContent = from ? fromMeta.en.split(' ')[0] : 'All Routes';
+  if (sumToEn) sumToEn.textContent = to ? toMeta.en.split(' ')[0] : 'All Stops';
+  if (sumRtBn) sumRtBn.textContent = (from && to) ? `${fromMeta.bn.split(' ')[0]} → ${toMeta.bn.split(' ')[0]}` : 'সকল বাসের তালিকা';
+
+  // Filter matching buses
   const matched = DUMMY_BUSES.filter(b => {
+    if (!from && !to) return true;
     const keys = b.stops.map(s => s.key);
-    return keys.indexOf(from) !== -1 && keys.indexOf(to) !== -1;
+    if (from && to) {
+      return keys.indexOf(from) !== -1 && keys.indexOf(to) !== -1;
+    }
+    if (from) return keys.indexOf(from) !== -1;
+    if (to) return keys.indexOf(to) !== -1;
+    return true;
   });
 
   if (matched.length === 0) {
@@ -1257,11 +1304,11 @@ function renderResults(from, to) {
               <path d="M14 2v6h6M10 13a1 1 0 100-2 1 1 0 000 2zm4 0a1 1 0 100-2 1 1 0 000 2z"/>
               <path d="M9 16s1 1.5 3 1.5 3-1.5 3-1.5"/>
             </svg>
-            <div style="font-size:0.75rem; font-weight:800; color:#2563eb; letter-spacing:0.05em;">NO DATA</div>
+            <div style="font-size:0.75rem; font-weight:800; color:#2563eb; letter-spacing:0.05em;">NO BUS FOUND</div>
           </div>
         </div>
         <div class="empty-state-title">No Buses Available</div>
-        <div class="empty-state-sub">No route options found for this selected route. Please try searching another stop.</div>
+        <div class="empty-state-sub">No active bus found for this route. Please try another stop or direct bus search.</div>
       </div>`;
     return;
   }
@@ -1286,8 +1333,11 @@ function openTracking(busId) {
   currentBus = DUMMY_BUSES.find(b => b.id === busId);
   if (!currentBus) return;
 
-  const fromMeta = STOPS_META[currentBus.from] || { en: currentBus.from };
-  const toMeta   = STOPS_META[currentBus.to] || { en: currentBus.to };
+  const originStop = currentBus.stops[0];
+  const destStop   = currentBus.stops[currentBus.stops.length - 1];
+
+  const fromMeta = STOPS_META[currentBus.from] || STOPS_META[originStop.key] || { en: originStop.en || currentBus.from };
+  const toMeta   = STOPS_META[currentBus.to] || STOPS_META[destStop.key] || { en: destStop.en || currentBus.to };
 
   const numEl = document.getElementById('track-header-busnum');
   const opEl  = document.getElementById('track-header-operator');
@@ -1301,8 +1351,8 @@ function openTracking(busId) {
   const arrEl   = document.getElementById('sheet-arr-city');
 
   if (titleEl) titleEl.textContent = `${currentBus.stops.length} Stops`;
-  if (depEl) depEl.textContent = fromMeta.en.split(' ')[0];
-  if (arrEl) arrEl.textContent = toMeta.en.split(' ')[0];
+  if (depEl) depEl.textContent = (fromMeta.en || 'Origin').split(' ')[0];
+  if (arrEl) arrEl.textContent = (toMeta.en || 'Destination').split(' ')[0];
 
   // Check if live location is in LocalStorage
   try {
@@ -1324,40 +1374,47 @@ function openTracking(busId) {
 
 function renderStopTimeline(bus) {
   const container = document.getElementById('stop-timeline');
-  if (!container || !bus || !bus.stops) return;
+  if (!container || !bus || !bus.stops || bus.stops.length === 0) return;
 
-  const lastSeq = bus.last_passed_stop_sequence || 1;
-  const currentStopIndex = Math.min(lastSeq, bus.stops.length);
-  
-  // Get last passed stop info
-  const passedStop = bus.stops.find((s, idx) => (s.sequence_no || (idx + 1)) === currentStopIndex) || bus.stops[0];
-  const passedMeta = STOPS_META[passedStop.key] || { en: passedStop.key };
+  const lastSeq = (bus.last_passed_stop_sequence !== undefined) ? Number(bus.last_passed_stop_sequence) : 0;
+  const originStop = bus.stops[0];
+  const originMeta = STOPS_META[originStop.key] || { en: originStop.en || originStop.key, bn: originStop.bn || originStop.key };
 
   const bannerText = document.getElementById('wimt-status-text');
   if (bannerText) {
-    if (currentStopIndex >= bus.stops.length) {
-      bannerText.innerHTML = `Bus <b>${bus.busNumber}</b> has <b>Reached Final Destination</b> at ${passedMeta.en}`;
+    if (lastSeq === 0) {
+      bannerText.innerHTML = `Bus <b>${bus.busNumber}</b> has <b>Not Started Trip Yet</b> — Origin: ${originMeta.en}`;
+    } else if (lastSeq >= bus.stops.length) {
+      const lastStop = bus.stops[bus.stops.length - 1];
+      const lastMeta = STOPS_META[lastStop.key] || { en: lastStop.en || lastStop.key };
+      bannerText.innerHTML = `Bus <b>${bus.busNumber}</b> has <b>Reached Final Destination</b> at ${lastMeta.en}`;
     } else {
+      const passedStop = bus.stops.find((s, idx) => (s.sequence_no || (idx + 1)) === lastSeq) || bus.stops[lastSeq - 1] || bus.stops[0];
+      const passedMeta = STOPS_META[passedStop.key] || { en: passedStop.en || passedStop.key };
       bannerText.innerHTML = `Bus <b>${bus.busNumber}</b> crossed <b>${passedMeta.en}</b> — Live Position`;
     }
   }
 
   container.innerHTML = bus.stops.map((stop, idx) => {
     const seqNo = stop.sequence_no || (idx + 1);
-    const meta = STOPS_META[stop.key] || { en: stop.key, bn: stop.key };
+    const meta = STOPS_META[stop.key] || { en: stop.en || stop.key, bn: stop.bn || stop.key };
 
     let stateClass = 'upcoming';
     let badgeHtml = '';
     let iconHtml = '';
 
-    if (seqNo < currentStopIndex) {
+    if (lastSeq > 0 && seqNo < lastSeq) {
       stateClass = 'passed';
       iconHtml = '✓';
       badgeHtml = `<span class="wimt-badge-passed">✓ Passed</span>`;
-    } else if (seqNo === currentStopIndex) {
+    } else if (lastSeq > 0 && seqNo === lastSeq) {
       stateClass = 'current';
       iconHtml = '🚌';
       badgeHtml = `<span class="wimt-badge-here">🚌 BUS IS HERE</span>`;
+    } else if (lastSeq === 0 && seqNo === 1) {
+      stateClass = 'upcoming';
+      iconHtml = '●';
+      badgeHtml = `<span style="font-size:0.7rem; color:#0284c7; font-weight:700;">Starting Point</span>`;
     } else {
       stateClass = 'upcoming';
       iconHtml = '';
@@ -1400,9 +1457,8 @@ async function fetchLiveBusLocationFromSupabase(busNum) {
   }
 }
 
-let activeSupabaseChannel = null;
 function subscribeToLiveLocationUpdates(busNum) {
-  // 1. Listen to BroadcastChannel
+  // 1. Listen to Local BroadcastChannel for instant cross-tab live sync
   if (window.BroadcastChannel) {
     try {
       const ch = new BroadcastChannel('citybus_live_channel');
@@ -1418,7 +1474,7 @@ function subscribeToLiveLocationUpdates(busNum) {
     } catch(e){}
   }
 
-  // 2. Listen to LocalStorage
+  // 2. Listen to LocalStorage events
   window.addEventListener('storage', (e) => {
     if (e.key === 'live_bus_' + busNum && e.newValue && currentBus) {
       try {
@@ -1431,9 +1487,11 @@ function subscribeToLiveLocationUpdates(busNum) {
     }
   });
 
-  // 3. Listen to Supabase Realtime
+  // 3. Listen to Supabase Realtime DB changes
   if (supabaseClient) {
-    if (activeSupabaseChannel) supabaseClient.removeChannel(activeSupabaseChannel);
+    if (activeSupabaseChannel) {
+      try { supabaseClient.removeChannel(activeSupabaseChannel); } catch(e){}
+    }
     activeSupabaseChannel = supabaseClient
       .channel('public:bus_locations_' + busNum)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bus_locations' }, payload => {
@@ -1449,8 +1507,6 @@ function subscribeToLiveLocationUpdates(busNum) {
   }
 }
 
-
-
 function refreshTracking() {
   if (currentBus) {
     fetchLiveBusLocationFromSupabase(currentBus.busNumber);
@@ -1461,7 +1517,7 @@ showScreen('screen-search');
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js?v=2').then(reg => {
+    navigator.serviceWorker.register('/sw.js?v=3').then(reg => {
       reg.update();
     }).catch(err => console.log('SW registration failed:', err));
   });
