@@ -697,24 +697,16 @@ function renderStopsList() {
       <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
         ${isPassed ? '<span style="color:var(--success);font-weight:700;font-size:0.8rem;">✓ Passed (Auto)</span>' :
           '<span style="color:var(--text-sub);font-size:0.75rem;">Upcoming</span>'}
-        <button class="btn-mark-stop" onclick="simulateStopArrival(${idx})" style="font-size:10px; padding:3px 8px;">Simulate GPS Here</button>
       </div>
     </div>`;
   }).join('');
 }
 
-function simulateStopArrival(index) {
-  const stop = routeStops[index];
-  if (!stop) return;
-  driverData.latestLat = stop.lat;
-  driverData.latestLng = stop.lng;
-  document.getElementById('gps-coords').textContent = `Simulated GPS @ ${stop.en} (${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)})`;
-  uploadLocation();
-}
 
 async function markStopReached(index) {
-  simulateStopArrival(index);
+  // Manual stop marking removed — GPS auto-detect handles stop progression
 }
+
 
 function startTrip() {
   // Check Secure Context (HTTPS requirement for Geolocation)
@@ -729,7 +721,7 @@ function startTrip() {
   }
 
   if (!navigator.geolocation) {
-    alert('Geolocation API not supported in this browser. Simulated/stop location updates will still work.');
+    alert('Geolocation API not supported in this browser. Please use a modern browser with GPS support.');
     document.getElementById('gps-coords').textContent = 'GPS API Not Supported';
   } else {
     document.getElementById('gps-coords').textContent = 'Requesting GPS access...';
@@ -743,7 +735,7 @@ function startTrip() {
       },
       err => {
         console.warn('GPS watch error:', err);
-        let msg = 'GPS Permission Pending / Simulating';
+        let msg = 'GPS Permission Pending';
         if (err.code === 1) msg = 'GPS Access Denied by User';
         else if (err.code === 2) msg = 'GPS Position Unavailable';
         else if (err.code === 3) msg = 'GPS Timeout - Retrying...';

@@ -775,17 +775,7 @@
       border-radius: 6px;
       letter-spacing: 0.05em;
     }
-    .sim-badge-top {
-      background: rgba(255,255,255,0.18);
-      color: white;
-      border: 1px solid rgba(255,255,255,0.3);
-      border-radius: 12px;
-      padding: 6px 12px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .sim-badge-top:active { transform: scale(0.94); }
+
 
     .wimt-status-banner {
       background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
@@ -1121,7 +1111,7 @@
       </div>
       <span class="sub-bn" id="track-header-route" style="opacity:0.9; font-size:0.75rem; color:#e0f2fe;">Jhargram to Kharagpur • LIVE TRACKING</span>
     </div>
-    <button class="sim-badge-top" id="btn-sim-toggle" onclick="toggleMovementSimulation()" title="Simulate Movement">▶ Sim</button>
+
   </div>
 
   <!-- LIVE STATUS BANNER ("Bus JGM-01 crossed Binpur Junction — 2 min ago") -->
@@ -1233,7 +1223,6 @@ const DUMMY_BUSES = [
 let currentBus = null;
 let leafletMap = null;
 let busMarker  = null;
-let simInterval= null;
 
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
@@ -1241,7 +1230,6 @@ function showScreen(id) {
 }
 
 function goBack(id) {
-  if (simInterval) { clearInterval(simInterval); simInterval = null; }
   showScreen(id);
 }
 
@@ -1553,16 +1541,7 @@ function subscribeToLiveLocationUpdates(busNum) {
   }
 }
 
-function toggleMovementSimulation() {
-  if (simInterval) { clearInterval(simInterval); simInterval = null; return; }
-  let seq = (currentBus ? currentBus.last_passed_stop_sequence || 1 : 1);
-  simInterval = setInterval(() => {
-    if (!currentBus) return;
-    seq = (seq % currentBus.stops.length) + 1;
-    currentBus.last_passed_stop_sequence = seq;
-    renderStopTimeline(currentBus);
-  }, 3000);
-}
+
 
 function refreshTracking() {
   if (currentBus) {
