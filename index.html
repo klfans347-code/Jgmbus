@@ -963,9 +963,10 @@
             <span class="icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="7.5" cy="16.5" r="1.5"/><circle cx="16.5" cy="16.5" r="1.5"/></svg>
             </span>
-            <input id="bus-num-search" type="text" placeholder="e.g. JGM-01, BEL-02" value="JGM-01" />
+            <input id="bus-num-search" type="text" placeholder="e.g. JGM-01, BEL-02" value="JGM-01" onkeydown="if(event.key==='Enter') directBusSearch();" oninput="const e=document.getElementById('bus-search-error'); if(e) e.style.display='none';" />
           </div>
         </div>
+        <div id="bus-search-error" style="display:none; color:#dc2626; background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:10px 14px; font-size:0.85rem; margin-bottom:12px; font-weight:600; text-align:center; line-height:1.4;"></div>
         <button class="btn-search" onclick="directBusSearch()">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M2 12h20"/></svg>
           Track Bus / বাস ট্র্যাক করুন
@@ -1174,24 +1175,37 @@ function findBus() {
 
 async function directBusSearch() {
   const inputEl = document.getElementById('bus-num-search');
+  const errEl = document.getElementById('bus-search-error');
   const num = inputEl ? inputEl.value.trim().toUpperCase() : '';
   
+  if (errEl) {
+    errEl.style.display = 'none';
+    errEl.innerHTML = '';
+  }
+
   if (!num) {
-    const defaultBus = DUMMY_BUSES[0];
-    openTracking(defaultBus.id);
+    if (errEl) {
+      errEl.innerHTML = '⚠️ অনুগ্রহ করে একটি বাস নম্বর লিখুন / Please enter a bus number (e.g. <b>JGM-01</b>, <b>BEL-02</b>)';
+      errEl.style.display = 'block';
+    }
     return;
   }
 
-  // Check if bus exists in local list
+  // 1. Check if bus exists in local predefined list
   let bus = DUMMY_BUSES.find(b => b.busNumber.toUpperCase() === num);
 
-  // If not found in memory, query Supabase database
+  // 2. If not found in local memory, query Supabase database
   if (!bus && supabaseClient) {
     try {
-      const { data: buses } = await supabaseClient.from('buses').select('id, bus_number, route_id, routes(route_name, route_code), operators(name)').eq('bus_number', num).limit(1);
+      const { data: buses, error } = await supabaseClient
+        .from('buses')
+        .select('id, bus_number, route_id, routes(route_name, route_code), operators(name)')
+        .ilike('bus_number', num)
+        .limit(1);
+
       if (buses && buses.length > 0) {
         const b = buses[0];
-        const rName = b.routes ? b.routes.route_name : `${num} Express`;
+        const rName = b.routes ? b.routes.route_name : `${b.bus_number} Express`;
         const opName = b.operators ? b.operators.name : 'JGM Paribahan';
 
         // Fetch stops for this route
@@ -1239,29 +1253,13 @@ async function directBusSearch() {
     }
   }
 
-  // If still not found, create dynamic bus tracking object so ANY bus number works seamlessly
+  // 3. If STILL not found in DB or local list, show ERROR and DO NOT open tracking
   if (!bus) {
-    bus = {
-      id: 'bus-' + num.toLowerCase().replace(/[^a-z0-9]/g, ''),
-      busNumber: num,
-      routeCode: 'R-LIVE',
-      routeNameEn: `${num} — Jangalmahal Express`,
-      routeNameBn: `${num} — জাঙ্গালমহল এক্সপ্রেস`,
-      operator: 'JGM Paribahan Services',
-      from: 'jhargram', to: 'kharagpur',
-      status: 'running', nextDeparture: '11:30 AM', viaEn: 'Via Lalgarh, Binpur, Sankrail',
-      stops: [
-        { key: 'jhargram', dist: '0 km', arrive: '10:30 AM', sequence_no: 1 },
-        { key: 'lalgarh', dist: '8 km', arrive: '10:48 AM', sequence_no: 2 },
-        { key: 'binpur', dist: '15 km', arrive: '11:05 AM', sequence_no: 3 },
-        { key: 'sankrail', dist: '32 km', arrive: '11:35 AM', sequence_no: 4 },
-        { key: 'kharagpur', dist: '56 km', arrive: '12:15 PM', sequence_no: 5 }
-      ],
-      last_passed_stop_sequence: 0,
-      currentLat: 22.4800, currentLng: 87.0700,
-      statusMsgEn: `Live tracking ${num}`
-    };
-    DUMMY_BUSES.push(bus);
+    if (errEl) {
+      errEl.innerHTML = `⚠️ বাস নম্বর <b>"${num}"</b> পাওয়া যায়নি / Bus <b>"${num}"</b> does not exist in the system.`;
+      errEl.style.display = 'block';
+    }
+    return;
   }
 
   openTracking(bus.id);
