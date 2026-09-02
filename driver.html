@@ -388,17 +388,19 @@
       background: rgba(15, 23, 42, 0.65);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
-      display: none;
+      display: none !important;
       align-items: flex-end;
       justify-content: center;
       z-index: 99999;
       opacity: 0;
+      pointer-events: none !important;
       padding: 0 16px calc(16px + env(safe-area-inset-bottom));
       transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .custom-modal-overlay.active {
-      display: flex;
-      opacity: 1;
+      display: flex !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
     }
     .custom-modal-card {
       background: #ffffff;
@@ -1400,12 +1402,14 @@ async function startTrip() {
   const swEl = document.getElementById('bg-sw-status');
   if (swEl) swEl.textContent = '⚙️ SW: Active ✓';
   const notifEl = document.getElementById('bg-notif-status');
-  if (notifEl) notifEl.textContent = Notification.permission === 'granted' ? '🔔 Notification: ON ✓' : '🔔 Notification: OFF';
+  if (notifEl && typeof Notification !== 'undefined') {
+    notifEl.textContent = Notification.permission === 'granted' ? '🔔 Notification: ON ✓' : '🔔 Notification: OFF';
+  }
 
-  await acquireWakeLock();
+  try { await acquireWakeLock(); } catch(e){}
   const wlEl = document.getElementById('bg-wakelock-status');
   if (wlEl) wlEl.textContent = wakeLock ? '🔆 Wake Lock: ON ✓' : '🔆 Wake Lock: Off';
-  notifySWTripStart();
+  try { notifySWTripStart(); } catch(e){}
 }
 
 function stopTrip() {
@@ -1905,9 +1909,22 @@ window.recalcModalStopDistance = recalcModalStopDistance;
 window.closeDriverAddStopModal = closeDriverAddStopModal;
 window.saveDriverNewStop = saveDriverNewStop;
 
+// Attach direct click listeners for reliability on mobile and desktop
+function attachButtonListeners() {
+  const btnStart = document.getElementById('btn-start');
+  if (btnStart) btnStart.onclick = function(e) { if(e) e.preventDefault(); startTrip(); };
+
+  const btnStop = document.getElementById('btn-stop');
+  if (btnStop) btnStop.onclick = function(e) { if(e) e.preventDefault(); stopTrip(); };
+
+  const btnLogout = document.getElementById('btn-logout-trigger');
+  if (btnLogout) btnLogout.onclick = function(e) { if(e) e.preventDefault(); handleLogout(); };
+}
+
 // ── INIT ─────────────────────────────────────────────────────
 registerDriverSW();
 requestNotificationPermission();
+attachButtonListeners();
 
 // Check and restore active driver session on page load / refresh
 const hasActiveSession = restoreDriverSession();
