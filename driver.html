@@ -370,6 +370,115 @@
       font-weight: 600;
       cursor: pointer;
     }
+
+    /* ─── Professional In-App Modal ─────────────────── */
+    .custom-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+    }
+    .custom-modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .custom-modal-card {
+      background: #ffffff;
+      width: 100%;
+      max-width: 420px;
+      border-radius: 24px;
+      padding: 24px 20px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      text-align: center;
+      transform: translateY(30px) scale(0.96);
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+    }
+    .custom-modal-overlay.active .custom-modal-card {
+      transform: translateY(0) scale(1);
+    }
+    .custom-modal-icon {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+    .icon-circle {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #fef2f2;
+      border: 2px solid #fee2e2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.12);
+    }
+    .custom-modal-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.01em;
+    }
+    .custom-modal-subtitle {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #64748b;
+      margin-top: 2px;
+    }
+    .custom-modal-desc {
+      font-size: 0.85rem;
+      color: #64748b;
+      line-height: 1.45;
+      margin: 12px 0 20px;
+    }
+    .custom-modal-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .btn-modal-cancel {
+      flex: 1;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1.5px solid #e2e8f0;
+      background: #f8fafc;
+      color: #475569;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s ease;
+    }
+    .btn-modal-cancel:active {
+      background: #e2e8f0;
+    }
+    .btn-modal-confirm {
+      flex: 1.2;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+      transition: all 0.15s ease;
+    }
+    .btn-modal-confirm:active {
+      transform: scale(0.98);
+      filter: brightness(0.95);
+    }
   </style>
 </head>
 <body>
@@ -452,16 +561,38 @@
       </div>
       <div class="bus-info-body">
         <div class="info-row">
-          <span class="label">Assigned Route / রুট</span>
-          <span class="value" id="trip-route-full" style="color:var(--primary);">Jhargram to Kharagpur</span>
-        </div>
-        <div class="info-row">
           <span class="label">Operator / অপারেটর</span>
           <span class="value" id="trip-operator">JGM Paribahan</span>
         </div>
         <div class="info-row">
           <span class="label">Driver Code / কোড</span>
           <span class="value" id="trip-driver-code">DRV-101</span>
+        </div>
+
+        <!-- Route & Direction Selector (Driver Control) -->
+        <div style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:0.75rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">
+              🛣 Trip Route / রুট নির্বাচন
+            </span>
+            <span id="route-lock-badge" style="display:none; font-size:0.7rem; font-weight:700; color:#dc2626; background:#fef2f2; border:1px solid #fecaca; border-radius:20px; padding:2px 8px;">
+              🔒 Locked in Trip
+            </span>
+          </div>
+          
+          <select id="driver-route-select" class="input-box" style="padding:10px 12px; font-weight:700; color:var(--primary); background:#fff; margin-bottom:8px; font-size:0.9rem;" onchange="handleDriverRouteChange(this.value)">
+            <!-- Populated by JS -->
+          </select>
+
+          <!-- Direction Toggle Buttons (Up vs Down / Return) -->
+          <div style="display:flex; gap:8px;">
+            <button id="btn-dir-forward" type="button" onclick="setTripDirection('forward')" style="flex:1; padding:9px 10px; border-radius:10px; border:1.5px solid var(--primary); background:var(--primary); color:#fff; font-weight:700; font-size:0.8rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; transition:all 0.15s ease;">
+              <span id="dir-forward-text">➡️ Up Route</span>
+            </button>
+            <button id="btn-dir-reverse" type="button" onclick="setTripDirection('reverse')" style="flex:1; padding:9px 10px; border-radius:10px; border:1.5px solid var(--border); background:#f8fafc; color:var(--text-main); font-weight:700; font-size:0.8rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; transition:all 0.15s ease;">
+              <span id="dir-reverse-text">🔄 Return Route</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -528,9 +659,34 @@
 
   <!-- Logout -->
   <div class="btn-logout">
-    <button onclick="handleLogout()">
+    <button type="button" id="btn-logout-trigger" onclick="handleLogout()">
       🚪 Logout / লগআউট
     </button>
+  </div>
+</div>
+
+<!-- PROFESSIONAL LOGOUT CONFIRMATION MODAL -->
+<div id="modal-logout" class="custom-modal-overlay" onclick="if(event.target===this) closeLogoutModal();">
+  <div class="custom-modal-card">
+    <div class="custom-modal-icon">
+      <div class="icon-circle">
+        🚪
+      </div>
+    </div>
+    <div class="custom-modal-title">Logout from Console?</div>
+    <div class="custom-modal-subtitle">লগআউট নিশ্চিত করুন</div>
+    <div class="custom-modal-desc">
+      Are you sure you want to end this driver session? Your live route and trip controls will be closed.
+      <br><span style="color:#94a3b8; font-size:0.8rem; margin-top:4px; display:inline-block;">আপনি কি ড্রাইভার সেশন শেষ করতে চান?</span>
+    </div>
+    <div class="custom-modal-actions">
+      <button class="btn-modal-cancel" onclick="closeLogoutModal()">
+        Cancel / বাতিল
+      </button>
+      <button class="btn-modal-confirm" onclick="confirmLogout()">
+        Yes, Logout / লগআউট
+      </button>
+    </div>
   </div>
 </div>
 
@@ -560,17 +716,48 @@ try {
 } catch(e){}
 
 const ROUTE_STOPS_FALLBACK = {
-  'R-101': [
-    { key: 'jhargram', en: 'Jhargram Bus Stand', bn: 'ঝাড়গ্রাম বাসস্ট্যান্ড', lat: 22.4586, lng: 86.9931, dist: '0 km' },
-    { key: 'lalgarh', en: 'Lalgarh Stop', bn: 'লালগড় স্টপ', lat: 22.5000, lng: 86.9400, dist: '8 km' },
-    { key: 'binpur', en: 'Binpur Junction', bn: 'বিনপুর জংশন', lat: 22.4800, lng: 87.0700, dist: '15 km' },
-    { key: 'sankrail', en: 'Sankrail Cross', bn: 'শাঁকরাইল মোড়', lat: 22.3900, lng: 87.2600, dist: '32 km' },
-    { key: 'kharagpur', en: 'Kharagpur Central', bn: 'খড়গপুর সেন্ট্রাল', lat: 22.3302, lng: 87.3237, dist: '56 km' }
-  ]
+  'R-101': {
+    route_code: 'R-101',
+    route_name: 'Jhargram – Kharagpur Express',
+    route_name_bn: 'ঝাড়গ্রাম – খড়গপুর এক্সপ্রেস',
+    stops: [
+      { key: 'jhargram', en: 'Jhargram Bus Stand', bn: 'ঝাড়গ্রাম বাসস্ট্যান্ড', lat: 22.4586, lng: 86.9931, dist: '0 km', sequence_no: 1 },
+      { key: 'lalgarh', en: 'Lalgarh Stop', bn: 'লালগড় স্টপ', lat: 22.5000, lng: 86.9400, dist: '8 km', sequence_no: 2 },
+      { key: 'binpur', en: 'Binpur Junction', bn: 'বিনপুর জংশন', lat: 22.4800, lng: 87.0700, dist: '15 km', sequence_no: 3 },
+      { key: 'sankrail', en: 'Sankrail Cross', bn: 'শাঁকরাইল মোড়', lat: 22.3900, lng: 87.2600, dist: '32 km', sequence_no: 4 },
+      { key: 'kharagpur', en: 'Kharagpur Central', bn: 'খড়গপুর সেন্ট্রাল', lat: 22.3302, lng: 87.3237, dist: '56 km', sequence_no: 5 }
+    ]
+  },
+  'R-109': {
+    route_code: 'R-109',
+    route_name: 'Jhargram – Medinipur Express',
+    route_name_bn: 'ঝাড়গ্রাম – মেদিনীপুর এক্সপ্রেস',
+    stops: [
+      { key: 'jhargram', en: 'Jhargram Bus Stand', bn: 'ঝাড়গ্রাম বাসস্ট্যান্ড', lat: 22.4586, lng: 86.9931, dist: '0 km', sequence_no: 1 },
+      { key: 'sankrail', en: 'Sankrail Cross', bn: 'শাঁকরাইল মোড়', lat: 22.3900, lng: 87.2600, dist: '32 km', sequence_no: 2 },
+      { key: 'kharagpur', en: 'Kharagpur Central', bn: 'খড়গপুর সেন্ট্রাল', lat: 22.3302, lng: 87.3237, dist: '56 km', sequence_no: 3 },
+      { key: 'medinipur', en: 'Medinipur Town Stand', bn: 'মেদিনীপুর টাউন স্ট্যান্ড', lat: 22.4286, lng: 87.3200, dist: '68 km', sequence_no: 4 }
+    ]
+  },
+  'R-105': {
+    route_code: 'R-105',
+    route_name: 'Belpahari – Kharagpur Local',
+    route_name_bn: 'বেলপাহাড়ি – খড়গপুর লোকাল',
+    stops: [
+      { key: 'belpahari', en: 'Belpahari Stand', bn: 'বেলপাহাড়ি স্ট্যান্ড', lat: 22.6300, lng: 86.7500, dist: '0 km', sequence_no: 1 },
+      { key: 'jhargram', en: 'Jhargram Bus Stand', bn: 'ঝাড়গ্রাম বাসস্ট্যান্ড', lat: 22.4586, lng: 86.9931, dist: '22 km', sequence_no: 2 },
+      { key: 'binpur', en: 'Binpur Junction', bn: 'বিনপুর জংশন', lat: 22.4800, lng: 87.0700, dist: '37 km', sequence_no: 3 },
+      { key: 'kharagpur', en: 'Kharagpur Central', bn: 'খড়গপুর সেন্ট্রাল', lat: 22.3302, lng: 87.3237, dist: '78 km', sequence_no: 4 }
+    ]
+  }
 };
 
 let driverData = null;
 let routeStops = [];
+let rawBaseStops = [];
+let allAvailableRoutes = [];
+let currentTripDirection = 'forward'; // 'forward' (Up) or 'reverse' (Down / Return)
+let isTripRunning = false;
 let currentStopIndex = 0;
 let gpsWatchId = null;
 let uploadInterval = null;
@@ -578,6 +765,171 @@ let uploadInterval = null;
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
+}
+
+function saveDriverSession() {
+  if (!driverData) return;
+  try {
+    localStorage.setItem('driver_session', JSON.stringify({
+      driverData: driverData,
+      routeStops: routeStops,
+      rawBaseStops: rawBaseStops,
+      currentTripDirection: currentTripDirection,
+      allAvailableRoutes: allAvailableRoutes,
+      lastPassedStopSeq: lastPassedStopSeq
+    }));
+  } catch(e){}
+}
+
+function restoreDriverSession() {
+  try {
+    const saved = localStorage.getItem('driver_session');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.driverData && parsed.routeStops && parsed.routeStops.length > 0) {
+        driverData = parsed.driverData;
+        routeStops = parsed.routeStops;
+        rawBaseStops = parsed.rawBaseStops || parsed.routeStops;
+        currentTripDirection = parsed.currentTripDirection || 'forward';
+        allAvailableRoutes = parsed.allAvailableRoutes || [];
+        lastPassedStopSeq = Number(parsed.lastPassedStopSeq) || 0;
+        
+        renderTripScreen();
+        showScreen('screen-trip');
+        console.log('[Session] Restored active driver session for bus:', driverData.bus_number);
+
+        // If trip was active before page reload/refresh, automatically resume tracking!
+        const wasActive = localStorage.getItem('driver_trip_active') === 'true';
+        if (wasActive) {
+          console.log('[Session] Auto-resuming active trip...');
+          startTrip();
+        }
+        return true;
+      }
+    }
+  } catch(e){
+    console.warn('[Session] Restore error:', e);
+  }
+  return false;
+}
+
+function handleDriverRouteChange(routeCode) {
+  if (isTripRunning) {
+    return;
+  }
+  loadRouteByCode(routeCode);
+}
+
+function loadRouteByCode(routeCode) {
+  let r = allAvailableRoutes.find(x => x.route_code === routeCode);
+  if (!r && ROUTE_STOPS_FALLBACK[routeCode]) {
+    r = ROUTE_STOPS_FALLBACK[routeCode];
+  }
+
+  if (r && driverData) {
+    driverData.route_code = r.route_code;
+    driverData.route_name_en = r.route_name || r.name_en || `${r.route_code} Express`;
+    driverData.route_name_bn = r.route_name_bn || r.route_name || r.name_en;
+
+    if (r.stops && r.stops.length > 0) {
+      rawBaseStops = r.stops.map((s, idx) => ({
+        key: s.stop_name ? s.stop_name.toLowerCase().replace(/\s+/g, '') : (s.key || 'stop' + idx),
+        en: s.stop_name || s.en || 'Stop ' + (idx + 1),
+        bn: s.stop_name || s.bn || s.en || 'স্টপ ' + (idx + 1),
+        lat: Number(s.lat),
+        lng: Number(s.lng),
+        dist: s.distance_km !== undefined ? `${s.distance_km} km` : (s.dist || '0 km'),
+        sequence_no: s.sequence_no || (idx + 1)
+      }));
+    } else if (ROUTE_STOPS_FALLBACK[routeCode]) {
+      rawBaseStops = [...ROUTE_STOPS_FALLBACK[routeCode].stops];
+    }
+
+    applyTripDirection(currentTripDirection);
+    saveDriverSession();
+  }
+}
+
+function setTripDirection(dir) {
+  if (isTripRunning) {
+    return;
+  }
+  currentTripDirection = dir;
+  applyTripDirection(dir);
+  saveDriverSession();
+}
+
+function applyTripDirection(dir) {
+  if (!rawBaseStops || rawBaseStops.length === 0 || !driverData) return;
+
+  const btnFwd = document.getElementById('btn-dir-forward');
+  const btnRev = document.getElementById('btn-dir-reverse');
+
+  const origStop = rawBaseStops[0];
+  const destStop = rawBaseStops[rawBaseStops.length - 1];
+
+  const origName = (origStop.en || 'Start').split(' ')[0];
+  const destName = (destStop.en || 'End').split(' ')[0];
+  const origBn   = (origStop.bn || 'শুরু').split(' ')[0];
+  const destBn   = (destStop.bn || 'শেষ').split(' ')[0];
+
+  const fwdText = document.getElementById('dir-forward-text');
+  const revText = document.getElementById('dir-reverse-text');
+  if (fwdText) fwdText.textContent = `➡️ ${origName} ➔ ${destName}`;
+  if (revText) revText.textContent = `🔄 ${destName} ➔ ${origName}`;
+
+  if (dir === 'forward') {
+    routeStops = rawBaseStops.map((s, idx) => ({
+      ...s,
+      sequence_no: idx + 1
+    }));
+    driverData.route_name_en = `${origName} – ${destName} Express`;
+    driverData.route_name_bn = `${origBn} – ${destBn} এক্সপ্রেস`;
+
+    if (btnFwd) {
+      btnFwd.style.background = 'var(--primary)';
+      btnFwd.style.borderColor = 'var(--primary)';
+      btnFwd.style.color = '#fff';
+    }
+    if (btnRev) {
+      btnRev.style.background = '#f8fafc';
+      btnRev.style.borderColor = 'var(--border)';
+      btnRev.style.color = 'var(--text-main)';
+    }
+  } else {
+    // Reverse / Return trip
+    routeStops = [...rawBaseStops].slice().reverse().map((s, idx) => ({
+      ...s,
+      sequence_no: idx + 1
+    }));
+    driverData.route_name_en = `${destName} – ${origName} Return`;
+    driverData.route_name_bn = `${destBn} – ${origBn} রিটার্ন`;
+
+    if (btnRev) {
+      btnRev.style.background = 'var(--primary)';
+      btnRev.style.borderColor = 'var(--primary)';
+      btnRev.style.color = '#fff';
+    }
+    if (btnFwd) {
+      btnFwd.style.background = '#f8fafc';
+      btnFwd.style.borderColor = 'var(--border)';
+      btnFwd.style.color = 'var(--text-main)';
+    }
+  }
+
+  driverData.latestLat = routeStops[0].lat;
+  driverData.latestLng = routeStops[0].lng;
+  lastPassedStopSeq = 0;
+
+  // Update UI headers
+  const numEl = document.getElementById('trip-bus-num');
+  const enEl  = document.getElementById('trip-route-en');
+  const bnEl  = document.getElementById('trip-route-bn');
+  if (numEl) numEl.textContent = driverData.bus_number;
+  if (enEl)  enEl.textContent  = driverData.route_name_en;
+  if (bnEl)  bnEl.textContent  = driverData.route_name_bn;
+
+  renderStopsList();
 }
 
 function togglePasswordVisibility() {
@@ -700,6 +1052,17 @@ async function handleLogin() {
       return;
     }
 
+    // Fetch All Routes from Supabase or Fallback
+    try {
+      const { data: allR } = await supabaseClient.from('routes').select('*, stops(*)');
+      if (allR && allR.length > 0) {
+        allAvailableRoutes = allR;
+      }
+    } catch(e){}
+    if (!allAvailableRoutes || allAvailableRoutes.length === 0) {
+      allAvailableRoutes = Object.values(ROUTE_STOPS_FALLBACK);
+    }
+
     // Fetch Route & Stops
     const { data: routes } = await supabaseClient.from('routes').select('*').eq('id', bus.route_id).limit(1);
     const { data: ops }    = await supabaseClient.from('operators').select('*').eq('id', bus.operator_id).limit(1);
@@ -707,11 +1070,12 @@ async function handleLogin() {
 
     const route = routes && routes[0] ? routes[0] : null;
     const op = ops && ops[0] ? ops[0] : null;
+    const rCode = route ? route.route_code : 'R-101';
 
     driverData = {
       bus_id: bus.id,
       bus_number: bus.bus_number,
-      route_code: route ? route.route_code : 'R-101',
+      route_code: rCode,
       route_name_en: route ? route.route_name : 'Jhargram – Kharagpur Express',
       route_name_bn: route ? route.route_name : 'ঝাড়গ্রাম – খড়গপুর এক্সপ্রেস',
       operator_name: op ? op.name : 'JGM Paribahan',
@@ -722,27 +1086,36 @@ async function handleLogin() {
     };
 
     if (stops && stops.length > 0) {
-      routeStops = stops.map(s => ({
+      rawBaseStops = stops.map((s, idx) => ({
         key: s.stop_name.toLowerCase().replace(/\s+/g, ''),
         en: s.stop_name,
         bn: s.stop_name,
         lat: Number(s.lat),
         lng: Number(s.lng),
         dist: `${s.distance_km} km`,
-        sequence_no: s.sequence_no
+        sequence_no: s.sequence_no || (idx + 1)
       }));
+    } else if (ROUTE_STOPS_FALLBACK[rCode]) {
+      rawBaseStops = [...ROUTE_STOPS_FALLBACK[rCode].stops];
     } else {
-      routeStops = ROUTE_STOPS_FALLBACK['R-101'];
+      rawBaseStops = [...ROUTE_STOPS_FALLBACK['R-101'].stops];
     }
 
+    currentTripDirection = 'forward';
+    applyTripDirection('forward');
+    saveDriverSession();
     renderTripScreen();
     showScreen('screen-trip');
 
   } catch (err) {
     console.warn('Login exception:', err);
     if ((code === 'DRV-101' || code === 'JGM-01') && password === '1234') {
+      allAvailableRoutes = Object.values(ROUTE_STOPS_FALLBACK);
       driverData = fallback;
-      routeStops = ROUTE_STOPS_FALLBACK['R-101'];
+      rawBaseStops = [...ROUTE_STOPS_FALLBACK['R-101'].stops];
+      currentTripDirection = 'forward';
+      applyTripDirection('forward');
+      saveDriverSession();
       renderTripScreen();
       showScreen('screen-trip');
     } else {
@@ -760,14 +1133,29 @@ async function handleLogin() {
 }
 
 function renderTripScreen() {
+  if (!driverData) return;
+
+  // Populate Route Dropdown
+  const rSelect = document.getElementById('driver-route-select');
+  if (rSelect) {
+    if (!allAvailableRoutes || allAvailableRoutes.length === 0) {
+      allAvailableRoutes = Object.values(ROUTE_STOPS_FALLBACK);
+    }
+    rSelect.innerHTML = allAvailableRoutes.map(r => {
+      const c = r.route_code || 'R-101';
+      const n = r.route_name || r.name_en || `${c} Express`;
+      const isSel = (c === driverData.route_code) ? 'selected' : '';
+      return `<option value="${c}" ${isSel}>${c}: ${n}</option>`;
+    }).join('');
+  }
+
   document.getElementById('trip-bus-num').textContent = driverData.bus_number;
   document.getElementById('trip-route-en').textContent = driverData.route_name_en;
   document.getElementById('trip-route-bn').textContent = driverData.route_name_bn;
-  document.getElementById('trip-route-full').textContent = `${driverData.route_name_en} (${driverData.route_code})`;
   document.getElementById('trip-operator').textContent = driverData.operator_name;
   document.getElementById('trip-driver-code').textContent = driverData.driver_code;
 
-  renderStopsList();
+  applyTripDirection(currentTripDirection || 'forward');
 }
 
 let lastPassedStopSeq = 0;
@@ -827,10 +1215,9 @@ function startTrip() {
   }
 
   if (!navigator.geolocation) {
-    alert('Geolocation API not supported in this browser. Please use a modern browser with GPS support.');
-    document.getElementById('gps-coords').textContent = 'GPS API Not Supported';
+    document.getElementById('gps-coords').textContent = '⚠️ GPS API Not Supported in this browser';
   } else {
-    document.getElementById('gps-coords').textContent = 'Requesting GPS access...';
+    document.getElementById('gps-coords').textContent = '📡 Requesting GPS access...';
     gpsWatchId = navigator.geolocation.watchPosition(
       pos => {
         driverData.latestLat = pos.coords.latitude;
@@ -858,9 +1245,21 @@ function startTrip() {
   if (uploadInterval) clearInterval(uploadInterval);
   uploadInterval = setInterval(uploadLocation, 6000);
 
+  isTripRunning = true;
   document.getElementById('btn-start').style.display = 'none';
   document.getElementById('btn-stop').style.display = 'flex';
   document.getElementById('stops-section').style.display = 'block';
+
+  // Lock Route & Direction Selector during active trip
+  const rSel = document.getElementById('driver-route-select');
+  const bFwd = document.getElementById('btn-dir-forward');
+  const bRev = document.getElementById('btn-dir-reverse');
+  const badge = document.getElementById('route-lock-badge');
+
+  if (rSel) rSel.disabled = true;
+  if (bFwd) { bFwd.disabled = true; bFwd.style.opacity = '0.6'; bFwd.style.cursor = 'not-allowed'; }
+  if (bRev) { bRev.disabled = true; bRev.style.opacity = '0.6'; bRev.style.cursor = 'not-allowed'; }
+  if (badge) badge.style.display = 'inline-block';
 
   const box = document.getElementById('trip-status-box');
   box.className = 'status-inner sharing';
@@ -914,8 +1313,21 @@ function stopTrip() {
     }
   }
 
+  isTripRunning = false;
   document.getElementById('btn-start').style.display = 'flex';
   document.getElementById('btn-stop').style.display = 'none';
+  renderStopsList();
+
+  // Unlock Route & Direction Selector when trip ends
+  const rSelEnd = document.getElementById('driver-route-select');
+  const bFwdEnd = document.getElementById('btn-dir-forward');
+  const bRevEnd = document.getElementById('btn-dir-reverse');
+  const badgeEnd = document.getElementById('route-lock-badge');
+
+  if (rSelEnd) rSelEnd.disabled = false;
+  if (bFwdEnd) { bFwdEnd.disabled = false; bFwdEnd.style.opacity = '1'; bFwd.style.cursor = 'pointer'; }
+  if (bRevEnd) { bRevEnd.disabled = false; bRevEnd.style.opacity = '1'; bRev.style.cursor = 'pointer'; }
+  if (badgeEnd) badgeEnd.style.display = 'none';
 
   const box = document.getElementById('trip-status-box');
   box.className = 'status-inner idle';
@@ -939,13 +1351,16 @@ async function uploadLocation() {
   if (routeStops && routeStops.length > 0) {
     routeStops.forEach((stop, idx) => {
       const seqNo = stop.sequence_no || (idx + 1);
-      const distMeters = getHaversineDistanceMeters(lat, lng, stop.lat, stop.lng);
-      
-      if (distMeters <= DISTANCE_THRESHOLD_METERS && seqNo >= lastPassedStopSeq) {
-        lastPassedStopSeq = seqNo;
-        currentStopIndex = seqNo;
-        newlyDetectedStop = stop.en;
-        console.log(`[Auto-Detect Stop Passed] Sequence ${seqNo}: ${stop.en} (Dist: ${distMeters.toFixed(1)}m)`);
+      const stopLat = Number(stop.lat);
+      const stopLng = Number(stop.lng);
+      if (!isNaN(stopLat) && !isNaN(stopLng)) {
+        const distMeters = getHaversineDistanceMeters(lat, lng, stopLat, stopLng);
+        if (distMeters <= DISTANCE_THRESHOLD_METERS && seqNo >= lastPassedStopSeq) {
+          lastPassedStopSeq = seqNo;
+          currentStopIndex = seqNo;
+          newlyDetectedStop = stop.en;
+          console.log(`[Auto-Detect Stop Passed] Sequence ${seqNo}: ${stop.en} (Dist: ${distMeters.toFixed(1)}m)`);
+        }
       }
     });
   }
@@ -998,10 +1413,33 @@ async function uploadLocation() {
   }
 }
 
-function handleLogout() {
+window.handleLogout = function() {
+  const modal = document.getElementById('modal-logout');
+  if (modal) {
+    modal.classList.add('active');
+  } else {
+    window.confirmLogout();
+  }
+};
+
+window.closeLogoutModal = function() {
+  const modal = document.getElementById('modal-logout');
+  if (modal) modal.classList.remove('active');
+};
+
+window.confirmLogout = function() {
+  window.closeLogoutModal();
   stopTrip();
+  try {
+    localStorage.removeItem('driver_session');
+    localStorage.removeItem('driver_trip_active');
+  } catch(e){}
+  driverData = null;
+  routeStops = [];
+  rawBaseStops = [];
+  lastPassedStopSeq = 0;
   showScreen('screen-login');
-}
+};
 
 // ════════════════════════════════════════════════════════════
 // BACKGROUND GPS TRACKING — Service Worker + Wake Lock
@@ -1020,7 +1458,7 @@ async function registerDriverSW() {
     return;
   }
   try {
-    driverSW = await navigator.serviceWorker.register('/driver-sw.js?v=3', { scope: '/' });
+    driverSW = await navigator.serviceWorker.register('/driver-sw.js?v=3', { scope: '/driver.html' });
     console.log('[BG] Driver SW registered:', driverSW.scope);
 
     // Listen for messages FROM service worker (e.g., "stop trip" from notification)
@@ -1162,6 +1600,11 @@ const _originalStartTrip = startTrip;
 startTrip = async function() {
   _originalStartTrip();
 
+  try {
+    localStorage.setItem('driver_trip_active', 'true');
+    saveDriverSession();
+  } catch(e){}
+
   // Show background tracking banner
   const banner = document.getElementById('bg-tracking-banner');
   if (banner) banner.style.display = 'flex';
@@ -1191,6 +1634,11 @@ const _originalStopTrip = stopTrip;
 stopTrip = function() {
   _originalStopTrip();
 
+  try {
+    localStorage.removeItem('driver_trip_active');
+    saveDriverSession();
+  } catch(e){}
+
   // Hide background tracking banner
   const banner = document.getElementById('bg-tracking-banner');
   if (banner) banner.style.display = 'none';
@@ -1204,6 +1652,7 @@ const _originalUploadLocation = uploadLocation;
 uploadLocation = async function() {
   await _originalUploadLocation();
   if (driverData) {
+    saveDriverSession();
     notifySWGpsUpdate(
       driverData.latestLat || 22.4586,
       driverData.latestLng || 86.9931
@@ -1215,7 +1664,11 @@ uploadLocation = async function() {
 registerDriverSW();
 requestNotificationPermission();
 
-showScreen('screen-login');
+// Check and restore active driver session on page load / refresh
+const hasActiveSession = restoreDriverSession();
+if (!hasActiveSession) {
+  showScreen('screen-login');
+}
 
 </script>
 </body>
