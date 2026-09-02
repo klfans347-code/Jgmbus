@@ -384,25 +384,53 @@
 
   <div class="login-card-wrapper">
     <div class="login-card">
-      <label class="field-label" for="input-code">
-        Driver Code <span class="bn">/ ড্রাইভার কোড</span>
-      </label>
-      <input
-        class="input-box"
-        id="input-code"
-        type="text"
-        placeholder="Enter driver code (e.g. DRV-101)"
-        value="DRV-101"
-        autocomplete="off"
-      />
+      <div style="margin-bottom:14px;">
+        <label class="field-label" for="input-code">
+          Driver Code or Bus # <span class="bn">/ ড্রাইভার কোড বা বাস নম্বর</span>
+        </label>
+        <input
+          class="input-box"
+          id="input-code"
+          type="text"
+          placeholder="e.g. DRV-101, JGM-01"
+          value="DRV-101"
+          autocomplete="username"
+          onkeydown="if(event.key==='Enter') document.getElementById('input-password').focus();"
+          oninput="const e=document.getElementById('login-error-msg'); if(e) e.style.display='none';"
+        />
+      </div>
 
-      <button class="btn-primary" onclick="handleLogin()">
-        🚀 Login & Load Route / লগইন ও রুট লোড করুন
+      <div style="margin-bottom:14px;">
+        <label class="field-label" for="input-password">
+          Password / PIN <span class="bn">/ পাসওয়ার্ড (Admin দ্বারা তৈরি)</span>
+        </label>
+        <div style="position:relative; display:flex; align-items:center;">
+          <input
+            class="input-box"
+            id="input-password"
+            type="password"
+            placeholder="Enter password (e.g. 1234)"
+            value="1234"
+            autocomplete="current-password"
+            style="padding-right:45px;"
+            onkeydown="if(event.key==='Enter') handleLogin();"
+            oninput="const e=document.getElementById('login-error-msg'); if(e) e.style.display='none';"
+          />
+          <button type="button" onclick="togglePasswordVisibility()" style="position:absolute; right:12px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.1rem; padding:4px;" title="Show/Hide Password" id="btn-toggle-pwd">
+            👁️
+          </button>
+        </div>
+      </div>
+
+      <div id="login-error-msg" style="display:none; color:#dc2626; background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:10px 14px; font-size:0.85rem; margin-bottom:14px; font-weight:600; text-align:center; line-height:1.4;"></div>
+
+      <button class="btn-primary" onclick="handleLogin()" id="btn-driver-login">
+        🚀 Secure Login & Load Route / নিরাপদ লগইন
       </button>
 
       <div class="login-hint">
-        Enter your Driver Code to see assigned route & update stops live.<br>
-        <span style="color:#94a3b8;">কোড দিন ও আপনার বাসের রুট ও স্টপ কন্ট্রোল করুন।</span>
+        🔒 Driver password is set & managed by Admin in Admin Console.<br>
+        <span style="color:#94a3b8;">পাসওয়ার্ড ভুলে গেলে অ্যাডমিনের সাথে যোগাযোগ করুন।</span>
       </div>
     </div>
   </div>
@@ -552,14 +580,49 @@ function showScreen(id) {
   document.getElementById(id).classList.remove('hidden');
 }
 
+function togglePasswordVisibility() {
+  const pwd = document.getElementById('input-password');
+  const btn = document.getElementById('btn-toggle-pwd');
+  if (!pwd) return;
+  if (pwd.type === 'password') {
+    pwd.type = 'text';
+    if (btn) btn.textContent = '🙈';
+  } else {
+    pwd.type = 'password';
+    if (btn) btn.textContent = '👁️';
+  }
+}
+
 async function handleLogin() {
-  const code = document.getElementById('input-code').value.trim().toUpperCase();
+  const codeInput = document.getElementById('input-code');
+  const pwdInput  = document.getElementById('input-password');
+  const errEl     = document.getElementById('login-error-msg');
+
+  const code     = codeInput ? codeInput.value.trim().toUpperCase() : '';
+  const password = pwdInput ? pwdInput.value.trim() : '';
+
+  if (errEl) {
+    errEl.style.display = 'none';
+    errEl.innerHTML = '';
+  }
+
   if (!code) {
-    alert('Please enter your Driver Code.');
+    if (errEl) {
+      errEl.innerHTML = '⚠️ অনুগ্রহ করে ড্রাইভার কোড লিখুন / Please enter your Driver Code or Bus Number.';
+      errEl.style.display = 'block';
+    }
     return;
   }
 
-  // Fallback DRV-101 data
+  if (!password) {
+    if (errEl) {
+      errEl.innerHTML = '⚠️ পাসওয়ার্ড লিখুন / Please enter your Driver Password/PIN.';
+      errEl.style.display = 'block';
+    }
+    return;
+  }
+
+  // Fallback DRV-101 / JGM-01 data
   const fallback = {
     bus_id: '33333333-3333-3333-3333-333333333333',
     bus_number: 'JGM-01',
@@ -574,18 +637,34 @@ async function handleLogin() {
   };
 
   if (!supabaseClient) {
-    driverData = fallback;
-    routeStops = ROUTE_STOPS_FALLBACK['R-101'];
-    renderTripScreen();
-    showScreen('screen-trip');
-    return;
+    // Offline / demo password check
+    if (password === '1234') {
+      driverData = fallback;
+      routeStops = ROUTE_STOPS_FALLBACK['R-101'];
+      renderTripScreen();
+      showScreen('screen-trip');
+      return;
+    } else {
+      if (errEl) {
+        errEl.innerHTML = '❌ ভুল পাসওয়ার্ড! / Invalid Password. (Default demo PIN is <b>1234</b>)';
+        errEl.style.display = 'block';
+      }
+      return;
+    }
+  }
+
+  const loginBtn = document.getElementById('btn-driver-login');
+  if (loginBtn) {
+    loginBtn.disabled = true;
+    loginBtn.textContent = '⏳ Verifying Credentials...';
   }
 
   try {
+    // Query bus by driver_code OR bus_number (case-insensitive)
     const { data: buses, error: busErr } = await supabaseClient
       .from('buses')
-      .select('id, bus_number, route_id, operator_id, driver_code, status')
-      .eq('driver_code', code)
+      .select('id, bus_number, route_id, operator_id, driver_code, driver_password, status')
+      .or(`driver_code.ilike.${code},bus_number.ilike.${code}`)
       .limit(1);
 
     if (busErr) {
@@ -593,19 +672,33 @@ async function handleLogin() {
     }
 
     if (!buses || buses.length === 0) {
-      // Use fallback if test code or offline
-      if (code === 'DRV-101' || code === 'DRV-102') {
+      // Fallback demo account check
+      if ((code === 'DRV-101' || code === 'JGM-01' || code === 'DRV-102') && password === '1234') {
         driverData = fallback;
         routeStops = ROUTE_STOPS_FALLBACK['R-101'];
         renderTripScreen();
         showScreen('screen-trip');
         return;
       }
-      alert('Driver Code not found in database.');
+
+      if (errEl) {
+        errEl.innerHTML = `❌ ড্রাইভার কোড বা বাস নম্বর <b>"${code}"</b> পাওয়া যায়নি / Driver code not registered.`;
+        errEl.style.display = 'block';
+      }
       return;
     }
 
     const bus = buses[0];
+
+    // Password / PIN Verification
+    const expectedPassword = bus.driver_password ? String(bus.driver_password).trim() : '1234';
+    if (password !== expectedPassword) {
+      if (errEl) {
+        errEl.innerHTML = '❌ ভুল পাসওয়ার্ড! / Invalid Password. Please check with your Admin.';
+        errEl.style.display = 'block';
+      }
+      return;
+    }
 
     // Fetch Route & Stops
     const { data: routes } = await supabaseClient.from('routes').select('*').eq('id', bus.route_id).limit(1);
@@ -635,7 +728,8 @@ async function handleLogin() {
         bn: s.stop_name,
         lat: Number(s.lat),
         lng: Number(s.lng),
-        dist: `${s.distance_km} km`
+        dist: `${s.distance_km} km`,
+        sequence_no: s.sequence_no
       }));
     } else {
       routeStops = ROUTE_STOPS_FALLBACK['R-101'];
@@ -646,10 +740,22 @@ async function handleLogin() {
 
   } catch (err) {
     console.warn('Login exception:', err);
-    driverData = fallback;
-    routeStops = ROUTE_STOPS_FALLBACK['R-101'];
-    renderTripScreen();
-    showScreen('screen-trip');
+    if ((code === 'DRV-101' || code === 'JGM-01') && password === '1234') {
+      driverData = fallback;
+      routeStops = ROUTE_STOPS_FALLBACK['R-101'];
+      renderTripScreen();
+      showScreen('screen-trip');
+    } else {
+      if (errEl) {
+        errEl.innerHTML = '❌ সার্ভার ত্রুটি / Connection error. Please try again.';
+        errEl.style.display = 'block';
+      }
+    }
+  } finally {
+    if (loginBtn) {
+      loginBtn.disabled = false;
+      loginBtn.textContent = '🚀 Secure Login & Load Route / নিরাপদ লগইন';
+    }
   }
 }
 

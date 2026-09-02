@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS public.buses (
     operator_id UUID REFERENCES public.operators(id) ON DELETE CASCADE,
     bus_number TEXT NOT NULL,
     driver_code TEXT UNIQUE NOT NULL,
+    driver_password TEXT DEFAULT '1234',
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive'))
 );
 
@@ -42,6 +43,7 @@ CREATE TABLE IF NOT EXISTS public.bus_locations (
     trip_status TEXT DEFAULT 'not_started' CHECK (trip_status IN ('not_started', 'in_progress', 'completed'))
 );
 
+ALTER TABLE public.buses ADD COLUMN IF NOT EXISTS driver_password TEXT DEFAULT '1234';
 ALTER TABLE public.bus_locations ADD COLUMN IF NOT EXISTS last_passed_stop_sequence INT DEFAULT 0;
 
 ALTER TABLE public.operators ENABLE ROW LEVEL SECURITY;

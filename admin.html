@@ -586,6 +586,7 @@
             <tr>
               <th>Bus Number</th>
               <th>Driver Code</th>
+              <th>Password / PIN</th>
               <th>Assigned Route</th>
               <th>Operator</th>
               <th>Status</th>
@@ -746,6 +747,10 @@
         <input class="form-control" id="bus-driver-code" placeholder="e.g. DRV-105" />
       </div>
       <div class="form-group">
+        <label class="form-label">Driver Login Password / PIN</label>
+        <input class="form-control" id="bus-driver-password" placeholder="e.g. 1234, secretPIN" value="1234" />
+      </div>
+      <div class="form-group">
         <label class="form-label">Assigned Route</label>
         <select class="form-control" id="bus-route-select">
           <!-- Populated by JS -->
@@ -823,6 +828,7 @@ async function loadDataFromSupabase() {
           id: b.id,
           bus_number: b.bus_number,
           driver_code: b.driver_code,
+          driver_password: b.driver_password || '1234',
           route: b.route_id || 'Jhargram – Kharagpur',
           operator: b.operator_id || 'JGM Paribahan',
           status: b.status || 'active',
@@ -867,8 +873,8 @@ function useFallbackData() {
       { seq: 5, name: 'Kharagpur Central', route: 'R-101', dist: 56, lat: 22.3302, lng: 87.3237 }
     ],
     buses: [
-      { id: '33333333-3333-3333-3333-333333333333', bus_number: 'JGM-01', driver_code: 'DRV-101', route: 'Jhargram – Kharagpur Express', operator: 'JGM Paribahan', status: 'active', trip_status: 'in_progress', lat: 22.4800, lng: 87.0700 },
-      { bus_number: 'JGM-02', driver_code: 'DRV-102', route: 'Jhargram – Kharagpur', operator: 'Shyamsundar Travels', status: 'active', trip_status: 'not_started', lat: 22.4586, lng: 86.9931 }
+      { id: '33333333-3333-3333-3333-333333333333', bus_number: 'JGM-01', driver_code: 'DRV-101', driver_password: '1234', route: 'Jhargram – Kharagpur Express', operator: 'JGM Paribahan', status: 'active', trip_status: 'in_progress', lat: 22.4800, lng: 87.0700 },
+      { bus_number: 'JGM-02', driver_code: 'DRV-102', driver_password: '1234', route: 'Jhargram – Kharagpur', operator: 'Shyamsundar Travels', status: 'active', trip_status: 'not_started', lat: 22.4586, lng: 86.9931 }
     ]
   };
   updateStatsAndTables();
@@ -956,6 +962,7 @@ function renderTables() {
     <tr>
       <td><strong>${b.bus_number}</strong></td>
       <td><code>${b.driver_code}</code></td>
+      <td><code style="background:#f1f5f9; color:#0284c7; padding:2px 8px; border-radius:4px; font-weight:700;">${b.driver_password || '1234'}</code></td>
       <td>${b.route || 'Jhargram - Kharagpur'}</td>
       <td>${b.operator || 'JGM Paribahan'}</td>
       <td><span class="badge-status badge-active">${b.status}</span></td>
@@ -1219,19 +1226,25 @@ async function saveOperator() {
 async function saveBus() {
   const num = document.getElementById('bus-num-input').value.trim();
   const code = document.getElementById('bus-driver-code').value.trim();
+  const pwd = (document.getElementById('bus-driver-password').value || '').trim() || '1234';
   let routeId = document.getElementById('bus-route-select').value;
-  if (!num || !code) return;
+  if (!num || !code) {
+    alert('Please enter Bus Number and Driver Code.');
+    return;
+  }
 
   if (!isValidUUID(routeId)) {
     const validRoute = dbData.routes.find(r => isValidUUID(r.id));
     routeId = validRoute ? validRoute.id : null;
   }
 
+  let busSavedInDB = false;
   if (supabaseClient) {
     try {
       const payload = {
         bus_number: num,
         driver_code: code,
+        driver_password: pwd,
         status: 'active'
       };
       if (routeId) payload.route_id = routeId;
@@ -1243,16 +1256,22 @@ async function saveBus() {
         logTerminal(`[ERROR] Registering Bus: ${error.message}`);
         alert('Supabase Notice: ' + error.message);
       } else {
-        logTerminal(`[SUCCESS] Registered New Bus: ${num} (Code: ${code})`);
+        busSavedInDB = true;
+        logTerminal(`[SUCCESS] Registered New Bus: ${num} (Code: ${code}, Password: ${pwd})`);
       }
     } catch(e){}
   }
 
-  dbData.buses.push({ bus_number: num, driver_code: code, route: 'Jhargram – Kharagpur', operator: 'JGM Paribahan', status: 'active', trip_status: 'not_started', lat: 22.4586, lng: 86.9931 });
+  dbData.buses.push({ bus_number: num, driver_code: code, driver_password: pwd, route: 'Jhargram – Kharagpur', operator: 'JGM Paribahan', status: 'active', trip_status: 'not_started', lat: 22.4586, lng: 86.9931 });
   updateStatsAndTables();
   closeModal('modal-bus');
   document.getElementById('bus-num-input').value = '';
   document.getElementById('bus-driver-code').value = '';
+  document.getElementById('bus-driver-password').value = '1234';
+
+  if (supabaseClient && busSavedInDB) {
+    loadDataFromSupabase();
+  }
 }
 
 function switchPane(paneId, navEl) {
