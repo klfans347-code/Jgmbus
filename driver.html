@@ -56,7 +56,8 @@
       flex-direction: column;
       background: var(--bg);
       transition: transform .28s cubic-bezier(.4,0,.2,1), opacity .28s ease;
-      overflow: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .screen.hidden { transform: translateX(100%); opacity: 0; pointer-events: none; }
 
@@ -75,8 +76,11 @@
     .app-header h1 { font-size: 1.125rem; font-weight: 700; flex: 1; }
     .app-header .sub { font-size: .75rem; opacity: .85; }
 
-    /* ─── Login Screen ──────────────────────────────── */
-    #screen-login { overflow-y: auto; }
+    /* ─── Login & Trip Screens ──────────────────────── */
+    #screen-login, #screen-trip {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
 
     .login-hero {
       background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #0284c7 100%);
@@ -371,6 +375,12 @@
       cursor: pointer;
     }
 
+    .btn-logout {
+      max-width: 460px;
+      margin: 16px auto 36px;
+      padding: 0 16px calc(24px + env(safe-area-inset-bottom));
+    }
+
     /* ─── Professional In-App Modal ─────────────────── */
     .custom-modal-overlay {
       position: fixed;
@@ -378,18 +388,17 @@
       background: rgba(15, 23, 42, 0.65);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
-      display: flex;
+      display: none;
       align-items: flex-end;
       justify-content: center;
-      z-index: 9999;
+      z-index: 99999;
       opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+      transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .custom-modal-overlay.active {
+      display: flex;
       opacity: 1;
-      pointer-events: auto;
     }
     .custom-modal-card {
       background: #ffffff;
@@ -1314,8 +1323,10 @@ function stopTrip() {
   }
 
   isTripRunning = false;
-  document.getElementById('btn-start').style.display = 'flex';
-  document.getElementById('btn-stop').style.display = 'none';
+  const btnStart = document.getElementById('btn-start');
+  const btnStop = document.getElementById('btn-stop');
+  if (btnStart) btnStart.style.display = 'flex';
+  if (btnStop) btnStop.style.display = 'none';
   renderStopsList();
 
   // Unlock Route & Direction Selector when trip ends
@@ -1324,10 +1335,28 @@ function stopTrip() {
   const bRevEnd = document.getElementById('btn-dir-reverse');
   const badgeEnd = document.getElementById('route-lock-badge');
 
-  if (rSelEnd) rSelEnd.disabled = false;
-  if (bFwdEnd) { bFwdEnd.disabled = false; bFwdEnd.style.opacity = '1'; bFwd.style.cursor = 'pointer'; }
-  if (bRevEnd) { bRevEnd.disabled = false; bRevEnd.style.opacity = '1'; bRev.style.cursor = 'pointer'; }
-  if (badgeEnd) badgeEnd.style.display = 'none';
+  if (rSelEnd) {
+    rSelEnd.disabled = false;
+    rSelEnd.removeAttribute('disabled');
+    rSelEnd.style.pointerEvents = 'auto';
+  }
+  if (bFwdEnd) {
+    bFwdEnd.disabled = false;
+    bFwdEnd.removeAttribute('disabled');
+    bFwdEnd.style.opacity = '1';
+    bFwdEnd.style.cursor = 'pointer';
+    bFwdEnd.style.pointerEvents = 'auto';
+  }
+  if (bRevEnd) {
+    bRevEnd.disabled = false;
+    bRevEnd.removeAttribute('disabled');
+    bRevEnd.style.opacity = '1';
+    bRevEnd.style.cursor = 'pointer';
+    bRevEnd.style.pointerEvents = 'auto';
+  }
+  if (badgeEnd) {
+    badgeEnd.style.display = 'none';
+  }
 
   const box = document.getElementById('trip-status-box');
   box.className = 'status-inner idle';
@@ -1659,6 +1688,15 @@ uploadLocation = async function() {
     );
   }
 };
+
+// Global Window Method Bindings for Inline HTML Callbacks
+window.startTrip = startTrip;
+window.stopTrip = stopTrip;
+window.handleLogout = handleLogout;
+window.closeLogoutModal = closeLogoutModal;
+window.confirmLogout = confirmLogout;
+window.setTripDirection = setTripDirection;
+window.handleDriverRouteChange = handleDriverRouteChange;
 
 // ── INIT ─────────────────────────────────────────────────────
 registerDriverSW();
