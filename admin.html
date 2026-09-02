@@ -656,32 +656,136 @@
   </div>
 </div>
 
-<!-- Add Route Modal (FIXED) -->
+<!-- Add Route Modal (COMPLETE WITH START STOP, INTERMEDIATE STOPS & END STOP) -->
 <div class="modal-overlay" id="modal-route">
-  <div class="modal-box">
+  <div class="modal-box" style="max-width: 600px; max-height: 90vh; display: flex; flex-direction: column;">
     <div class="modal-header">
-      <h3>Add New Route</h3>
+      <div>
+        <h3 style="font-size:1.15rem; font-weight:800;">Create New Route & Stop Sequences</h3>
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Add Route with Origin (শুরু), Intermediate Stops (মাঝের স্টপ) & Final Destination (শেষ)</p>
+      </div>
       <button onclick="closeModal('modal-route')" style="border:none;background:none;font-size:1.2rem;cursor:pointer;">✕</button>
     </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label">Route Code</label>
-        <input class="form-control" id="route-code-input" placeholder="e.g. R-105" />
+    <div class="modal-body" style="overflow-y:auto; padding:16px 20px;">
+      
+      <!-- Route Meta -->
+      <div style="display:flex; gap:12px; margin-bottom:14px;">
+        <div class="form-group" style="flex:1; margin-bottom:0;">
+          <label class="form-label">Route Code / কোড <span style="color:var(--danger)">*</span></label>
+          <input class="form-control" id="route-code-input" placeholder="e.g. R-109" oninput="autoGenerateRouteName()" />
+        </div>
+        <div class="form-group" style="flex:1.5; margin-bottom:0;">
+          <label class="form-label">Operator / অপারেটর</label>
+          <select class="form-control" id="route-operator-select">
+            <!-- Populated by JS -->
+          </select>
+        </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Route Name</label>
-        <input class="form-control" id="route-name-input" placeholder="e.g. Jhargram – Belpahari" />
+
+      <!-- 1. STARTING STOP (ORIGIN) -->
+      <div style="background:#f0fdf4; border:1.5px solid #bbf7d0; border-radius:12px; padding:12px 14px; margin-bottom:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <span style="font-weight:700; color:#16a34a; font-size:0.85rem;">🟢 Starting Stop (Origin / কোথা থেকে শুরু)</span>
+          <span style="font-size:0.7rem; background:#dcfce7; color:#15803d; padding:2px 6px; border-radius:4px; font-weight:700;">Seq #1 • 0 km</span>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <input class="form-control" id="route-start-stop-name" placeholder="Origin Stop Name (e.g. Jhargram Bus Stand)" oninput="autoGenerateRouteName()" style="flex:2;" />
+          <input class="form-control" id="route-start-stop-lat" placeholder="Lat (22.4586)" value="22.4586" style="flex:1; font-size:0.8rem;" />
+          <input class="form-control" id="route-start-stop-lng" placeholder="Lng (86.9931)" value="86.9931" style="flex:1; font-size:0.8rem;" />
+        </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Operator</label>
-        <select class="form-control" id="route-operator-select">
-          <!-- Populated by JS -->
-        </select>
+
+      <!-- 2. INTERMEDIATE STOPS LIST -->
+      <div style="margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">
+            📍 Intermediate Stops / মাঝের স্টপেজ (Optional)
+          </span>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="addIntermediateStopRow()" style="padding:4px 10px; font-size:0.75rem;">
+            ➕ Add Stop
+          </button>
+        </div>
+        <div id="intermediate-stops-container" style="display:flex; flex-direction:column; gap:8px;">
+          <!-- Injected via JS -->
+        </div>
       </div>
+
+      <!-- 3. FINAL DESTINATION STOP -->
+      <div style="background:#eff6ff; border:1.5px solid #bfdbfe; border-radius:12px; padding:12px 14px; margin-bottom:14px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <span style="font-weight:700; color:#2563eb; font-size:0.85rem;">🏁 Final Destination Stop (শেষ স্টপেজ)</span>
+          <span style="font-size:0.7rem; background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:4px; font-weight:700;">Final Stop</span>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+          <input class="form-control" id="route-end-stop-name" placeholder="Destination Stop Name (e.g. Medinipur Town Stand)" oninput="autoGenerateRouteName()" style="flex:2;" />
+          <input class="form-control" id="route-end-stop-dist" placeholder="Total Dist km (e.g. 68)" type="number" step="0.1" style="flex:1;" />
+        </div>
+        <div style="display:flex; gap:8px;">
+          <input class="form-control" id="route-end-stop-lat" placeholder="Lat (22.4286)" value="22.4286" style="flex:1; font-size:0.8rem;" />
+          <input class="form-control" id="route-end-stop-lng" placeholder="Lng (87.3200)" value="87.3200" style="flex:1; font-size:0.8rem;" />
+        </div>
+      </div>
+
+      <!-- Route Name Preview -->
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Route Display Name / রুটের নাম (Auto / Edit)</label>
+        <input class="form-control" id="route-name-input" placeholder="e.g. Jhargram – Medinipur Express" style="font-weight:700; color:var(--primary);" />
+      </div>
+
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-route')">Cancel</button>
-      <button class="btn btn-btn-primary" onclick="saveRoute()">Save Route</button>
+      <button class="btn btn-btn-primary" id="btn-save-route" onclick="saveRouteWithStops()">🚀 Save Route & All Stops</button>
+    </div>
+  </div>
+</div>
+
+<!-- View & Manage Route Stops Modal -->
+<div class="modal-overlay" id="modal-route-stops-view">
+  <div class="modal-box" style="max-width: 650px; max-height: 90vh; display:flex; flex-direction:column;">
+    <div class="modal-header">
+      <div>
+        <h3 id="view-route-title" style="font-size:1.15rem; font-weight:800;">Route Stops</h3>
+        <p id="view-route-subtitle" style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">All Stops in Sequence</p>
+      </div>
+      <button onclick="closeModal('modal-route-stops-view')" style="border:none;background:none;font-size:1.2rem;cursor:pointer;">✕</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto; padding:16px 20px;">
+      
+      <!-- Stops List Table -->
+      <table style="width:100%; margin-bottom:16px;">
+        <thead>
+          <tr>
+            <th style="width:60px;">Seq</th>
+            <th>Stop Name</th>
+            <th>Distance</th>
+            <th>Coordinates</th>
+            <th style="width:70px;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="view-route-stops-tbody">
+          <!-- Injected by JS -->
+        </tbody>
+      </table>
+
+      <!-- Quick Add Stop to This Route -->
+      <div style="background:#f8fafc; border:1px dashed var(--border); border-radius:12px; padding:14px;">
+        <div style="font-weight:700; font-size:0.85rem; color:var(--text-main); margin-bottom:8px;">➕ Add Stop to this Route</div>
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+          <input type="hidden" id="quick-stop-route-id" />
+          <input class="form-control" id="quick-stop-name" placeholder="Stop Name (e.g. Sankrail Cross)" style="flex:2;" />
+          <input class="form-control" id="quick-stop-dist" placeholder="Dist km" type="number" step="0.1" style="flex:1;" />
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input class="form-control" id="quick-stop-lat" placeholder="Lat (22.4586)" value="22.4586" style="flex:1; font-size:0.8rem;" />
+          <input class="form-control" id="quick-stop-lng" placeholder="Lng (86.9931)" value="86.9931" style="flex:1; font-size:0.8rem;" />
+          <button class="btn btn-btn-primary btn-sm" onclick="saveQuickStopToRoute()" style="padding:10px 16px; white-space:nowrap;">+ Add Stop</button>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-route-stops-view')">Close</button>
     </div>
   </div>
 </div>
@@ -814,23 +918,53 @@ async function loadDataFromSupabase() {
     const { data: operators } = await supabaseClient.from('operators').select('*');
     if (operators && operators.length > 0) dbData.operators = operators;
 
-    const { data: routes } = await supabaseClient.from('routes').select('*');
-    if (routes && routes.length > 0) dbData.routes = routes;
+    const { data: routes } = await supabaseClient.from('routes').select('*, operators(name), stops(*)');
+    if (routes && routes.length > 0) {
+      dbData.routes = routes.map(r => {
+        const opName = r.operators ? r.operators.name : (dbData.operators.find(o => o.id === r.operator_id)?.name || 'JGM Paribahan');
+        const sortedStops = r.stops ? [...r.stops].sort((a, b) => (a.sequence_no || 0) - (b.sequence_no || 0)) : [];
+        return {
+          id: r.id,
+          route_code: r.route_code,
+          route_name: r.route_name,
+          operator: opName,
+          operator_id: r.operator_id,
+          stops: sortedStops,
+          stops_count: sortedStops.length
+        };
+      });
+    }
 
-    const { data: stops } = await supabaseClient.from('stops').select('*').order('sequence_no');
-    if (stops && stops.length > 0) dbData.stops = stops;
+    const { data: stops } = await supabaseClient.from('stops').select('*, routes(route_code, route_name)').order('sequence_no');
+    if (stops && stops.length > 0) {
+      dbData.stops = stops.map(s => ({
+        id: s.id,
+        route_id: s.route_id,
+        route_code: s.routes ? s.routes.route_code : (dbData.routes.find(r => r.id === s.route_id)?.route_code || 'R-101'),
+        name: s.stop_name,
+        stop_name: s.stop_name,
+        seq: s.sequence_no,
+        sequence_no: s.sequence_no,
+        dist: s.distance_km,
+        distance_km: s.distance_km,
+        lat: Number(s.lat),
+        lng: Number(s.lng)
+      }));
+    }
 
     const { data: buses } = await supabaseClient.from('buses').select('*, bus_locations(*)');
     if (buses && buses.length > 0) {
       dbData.buses = buses.map(b => {
         const loc = b.bus_locations || {};
+        const assignedRoute = dbData.routes.find(r => r.id === b.route_id);
+        const assignedOp = dbData.operators.find(o => o.id === b.operator_id);
         return {
           id: b.id,
           bus_number: b.bus_number,
           driver_code: b.driver_code,
           driver_password: b.driver_password || '1234',
-          route: b.route_id || 'Jhargram – Kharagpur',
-          operator: b.operator_id || 'JGM Paribahan',
+          route: assignedRoute ? `${assignedRoute.route_code} — ${assignedRoute.route_name}` : 'Jhargram – Kharagpur',
+          operator: assignedOp ? assignedOp.name : 'JGM Paribahan',
           status: b.status || 'active',
           trip_status: loc.trip_status || 'not_started',
           lat: loc.lat || 22.4586,
@@ -932,25 +1066,37 @@ function renderTables() {
   `).join('');
 
   const routeTbody = document.getElementById('routes-table');
-  routeTbody.innerHTML = dbData.routes.map(r => `
+  routeTbody.innerHTML = dbData.routes.map(r => {
+    const stopsList = r.stops || dbData.stops.filter(s => s.route_id === r.id || s.route === r.route_code);
+    const startStop = stopsList.length > 0 ? (stopsList[0].stop_name || stopsList[0].name) : '';
+    const endStop = stopsList.length > 1 ? (stopsList[stopsList.length - 1].stop_name || stopsList[stopsList.length - 1].name) : '';
+    
+    return `
     <tr>
       <td><strong>${r.route_code || 'R-101'}</strong></td>
-      <td>${r.route_name || r.name || 'Route'}</td>
-      <td>${r.operator || 'JGM Paribahan'}</td>
-      <td>${r.stops_count || 5} stops</td>
       <td>
-        <button class="btn btn-secondary btn-sm" onclick="addStopToRoute('${r.id}')">+ Add Stop</button>
+        <strong>${r.route_name || r.name || 'Route'}</strong>
+        ${startStop ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">🚩 ${startStop} ➔ 🏁 ${endStop || 'End'}</div>` : ''}
+      </td>
+      <td>${r.operator || 'JGM Paribahan'}</td>
+      <td>
+        <span class="badge-status ${stopsList.length > 0 ? 'badge-active' : 'badge-inactive'}" style="font-weight:700;">
+          📍 ${stopsList.length} Stops
+        </span>
+      </td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick="viewRouteStopsModal('${r.id}')">📍 Manage Stops</button>
         <button class="btn btn-danger btn-sm" onclick="deleteRoute('${r.id}')">Delete</button>
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 
   const stopTbody = document.getElementById('stops-table');
   stopTbody.innerHTML = dbData.stops.map(s => `
     <tr>
       <td>${s.seq || s.sequence_no || 1}</td>
       <td><strong>${s.name || s.stop_name}</strong></td>
-      <td>${s.route || 'R-101'}</td>
+      <td><code>${s.route_code || s.route || 'R-101'}</code></td>
       <td>${s.dist || s.distance_km || 0} km</td>
       <td>${s.lat}, ${s.lng}</td>
       <td><button class="btn btn-danger btn-sm" onclick="deleteStop('${s.id}')">Delete</button></td>
@@ -972,84 +1118,340 @@ function renderTables() {
 }
 
 function addStopToRoute(routeId) {
-  const routeSelect = document.getElementById('stop-route-select');
-  if (routeSelect) routeSelect.value = routeId;
-  openModal('modal-stop');
+  viewRouteStopsModal(routeId);
 }
 
 /* ═══════════════════════════════════════════════════════════
-   FIXED CRUD OPERATIONS FOR ROUTES & STOPS (BUG FIX 2)
+   COMPLETE ROUTE & STOP BUILDER LOGIC
 ═══════════════════════════════════════════════════════════ */
 function isValidUUID(uuidStr) {
   if (!uuidStr || typeof uuidStr !== 'string') return false;
   return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(uuidStr);
 }
 
-async function saveRoute() {
+function autoGenerateRouteName() {
+  const start = document.getElementById('route-start-stop-name').value.trim();
+  const end = document.getElementById('route-end-stop-name').value.trim();
+  const nameInput = document.getElementById('route-name-input');
+  
+  if (start || end) {
+    const s = start ? start.split(' ')[0] : 'Origin';
+    const e = end ? end.split(' ')[0] : 'Destination';
+    nameInput.value = `${s} – ${e} Express`;
+  }
+}
+
+function addIntermediateStopRow() {
+  const container = document.getElementById('intermediate-stops-container');
+  const count = container.querySelectorAll('.intermediate-stop-row').length + 1;
+  const row = document.createElement('div');
+  row.className = 'intermediate-stop-row';
+  row.style.cssText = 'background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;';
+  row.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span class="inter-seq-label" style="font-size:0.75rem; font-weight:700; color:var(--text-muted);">Intermediate Stop #${count}</span>
+      <button type="button" onclick="this.closest('.intermediate-stop-row').remove(); updateIntermediateSeq();" style="border:none; background:none; color:#ef4444; font-size:0.8rem; cursor:pointer; font-weight:700;">✕ Remove</button>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <input class="form-control inter-name" placeholder="Stop Name (e.g. Lalgarh Stop)" style="flex:2;" />
+      <input class="form-control inter-dist" placeholder="Dist km (e.g. 15)" type="number" step="0.1" style="flex:1;" />
+    </div>
+    <div style="display:flex; gap:8px;">
+      <input class="form-control inter-lat" placeholder="Lat (22.5000)" value="22.4800" style="flex:1; font-size:0.75rem;" />
+      <input class="form-control inter-lng" placeholder="Lng (86.9400)" value="87.0700" style="flex:1; font-size:0.75rem;" />
+    </div>
+  `;
+  container.appendChild(row);
+}
+
+function updateIntermediateSeq() {
+  const rows = document.querySelectorAll('.intermediate-stop-row');
+  rows.forEach((row, idx) => {
+    const lbl = row.querySelector('.inter-seq-label');
+    if (lbl) lbl.textContent = `Intermediate Stop #${idx + 1}`;
+  });
+}
+
+function resetRouteModalForm() {
+  document.getElementById('route-code-input').value = '';
+  document.getElementById('route-name-input').value = '';
+  document.getElementById('route-start-stop-name').value = '';
+  document.getElementById('route-start-stop-lat').value = '22.4586';
+  document.getElementById('route-start-stop-lng').value = '86.9931';
+  document.getElementById('route-end-stop-name').value = '';
+  document.getElementById('route-end-stop-dist').value = '';
+  document.getElementById('route-end-stop-lat').value = '22.3302';
+  document.getElementById('route-end-stop-lng').value = '87.3237';
+  document.getElementById('intermediate-stops-container').innerHTML = '';
+}
+
+async function saveRouteWithStops() {
   const code = document.getElementById('route-code-input').value.trim();
   const name = document.getElementById('route-name-input').value.trim();
   let opId = document.getElementById('route-operator-select').value;
+  
+  const startName = document.getElementById('route-start-stop-name').value.trim();
+  const startLat  = parseFloat(document.getElementById('route-start-stop-lat').value) || 22.4586;
+  const startLng  = parseFloat(document.getElementById('route-start-stop-lng').value) || 86.9931;
 
-  if (!code || !name) {
-    alert('Please enter Route Code and Route Name.');
+  const endName   = document.getElementById('route-end-stop-name').value.trim();
+  const endDist   = parseFloat(document.getElementById('route-end-stop-dist').value) || 50;
+  const endLat    = parseFloat(document.getElementById('route-end-stop-lat').value) || 22.3302;
+  const endLng    = parseFloat(document.getElementById('route-end-stop-lng').value) || 87.3237;
+
+  if (!code) {
+    alert('Please enter a Route Code (e.g. R-109)');
+    return;
+  }
+  if (!startName) {
+    alert('Please enter Starting Stop Name (Origin / কোথা থেকে শুরু)');
+    return;
+  }
+  if (!endName) {
+    alert('Please enter Final Destination Stop Name (শেষ স্টপেজ)');
     return;
   }
 
-  // Ensure operator_id is a valid UUID or null
-  if (!isValidUUID(opId)) {
-    const validOp = dbData.operators.find(op => isValidUUID(op.id));
-    opId = validOp ? validOp.id : null;
+  const finalRouteName = name || `${startName.split(' ')[0]} – ${endName.split(' ')[0]} Express`;
+
+  // Build full stops sequence array
+  const stopsToCreate = [];
+  
+  // 1. Origin Stop (Seq #1, 0 km)
+  stopsToCreate.push({
+    stop_name: startName,
+    sequence_no: 1,
+    distance_km: 0,
+    lat: startLat,
+    lng: startLng
+  });
+
+  // 2. Intermediate stops (Seq #2..N-1)
+  const intermediateRows = document.querySelectorAll('.intermediate-stop-row');
+  let currentSeq = 2;
+  intermediateRows.forEach(row => {
+    const sName = row.querySelector('.inter-name').value.trim();
+    const sDist = parseFloat(row.querySelector('.inter-dist').value) || (currentSeq * 10);
+    const sLat  = parseFloat(row.querySelector('.inter-lat').value) || 22.4800;
+    const sLng  = parseFloat(row.querySelector('.inter-lng').value) || 87.0700;
+    if (sName) {
+      stopsToCreate.push({
+        stop_name: sName,
+        sequence_no: currentSeq++,
+        distance_km: sDist,
+        lat: sLat,
+        lng: sLng
+      });
+    }
+  });
+
+  // 3. Final Destination Stop (Seq #N, endDist)
+  stopsToCreate.push({
+    stop_name: endName,
+    sequence_no: stopsToCreate.length + 1,
+    distance_km: endDist,
+    lat: endLat,
+    lng: endLng
+  });
+
+  const saveBtn = document.getElementById('btn-save-route');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = '⏳ Saving Route & Stops...';
   }
 
   let createdRouteId = null;
-  let routeSavedInDB = false;
   if (supabaseClient) {
     try {
       const payload = {
         route_code: code,
-        route_name: name
+        route_name: finalRouteName
       };
-      if (opId) payload.operator_id = opId;
+      if (isValidUUID(opId)) payload.operator_id = opId;
 
-      const { data, error } = await supabaseClient.from('routes').insert([payload]).select();
+      const { data: routeData, error: routeErr } = await supabaseClient
+        .from('routes')
+        .insert([payload])
+        .select();
 
-      if (error) {
-        console.error('Supabase Route insert error:', error);
-        logTerminal(`[ERROR] Saving Route to Supabase: ${error.message} (Code: ${error.code})`);
-        alert('Supabase Notice: ' + error.message + '\nRoute will be saved in local view.');
-      } else {
-        routeSavedInDB = true;
-        if (data && data[0]) {
-          createdRouteId = data[0].id;
+      if (routeErr) {
+        logTerminal(`[ERROR] Supabase Route insert: ${routeErr.message}`);
+        alert('Supabase Route insert error: ' + routeErr.message);
+      } else if (routeData && routeData[0]) {
+        createdRouteId = routeData[0].id;
+        logTerminal(`[SUCCESS] Route ${code} created in Supabase! ID: ${createdRouteId}`);
+
+        // Insert all stops with route_id
+        const stopsPayload = stopsToCreate.map(s => ({
+          ...s,
+          route_id: createdRouteId
+        }));
+
+        const { error: stopsErr } = await supabaseClient
+          .from('stops')
+          .insert(stopsPayload);
+
+        if (stopsErr) {
+          logTerminal(`[ERROR] Supabase Stops insert: ${stopsErr.message}`);
+        } else {
+          logTerminal(`[SUCCESS] Inserted ${stopsPayload.length} stops for route ${code} in sequence!`);
         }
-        logTerminal(`[SUCCESS] Added Route to Supabase: ${code} — ${name}`);
       }
     } catch(err) {
-      console.error('Save Route exception:', err);
+      console.error('saveRouteWithStops error:', err);
       logTerminal(`[EXCEPTION] Route Save: ${err.message}`);
     }
   }
 
-  // Local state update fallback
-  const newRouteObj = {
-    id: createdRouteId || String(Date.now()),
+  // Local state update
+  const localRoute = {
+    id: createdRouteId || 'local-' + Date.now(),
     route_code: code,
-    route_name: name,
-    operator: 'JGM Paribahan',
-    stops_count: 0
+    route_name: finalRouteName,
+    operator: dbData.operators.find(o => o.id === opId)?.name || 'JGM Paribahan',
+    stops: stopsToCreate,
+    stops_count: stopsToCreate.length
   };
-  dbData.routes.push(newRouteObj);
+  dbData.routes.push(localRoute);
+  stopsToCreate.forEach(s => {
+    dbData.stops.push({
+      id: 'stop-' + Math.random(),
+      seq: s.sequence_no,
+      sequence_no: s.sequence_no,
+      name: s.stop_name,
+      stop_name: s.stop_name,
+      route: code,
+      route_code: code,
+      route_id: localRoute.id,
+      dist: s.distance_km,
+      distance_km: s.distance_km,
+      lat: s.lat,
+      lng: s.lng
+    });
+  });
+
   updateStatsAndTables();
   populateSelectDropdowns();
 
-  if (supabaseClient && routeSavedInDB) {
-    loadDataFromSupabase();
+  if (supabaseClient && createdRouteId) {
+    await loadDataFromSupabase();
+  }
+
+  if (saveBtn) {
+    saveBtn.disabled = false;
+    saveBtn.textContent = '🚀 Save Route & All Stops';
   }
 
   closeModal('modal-route');
-  document.getElementById('route-code-input').value = '';
-  document.getElementById('route-name-input').value = '';
+  resetRouteModalForm();
+  alert(`✅ Route "${code}: ${finalRouteName}" with ${stopsToCreate.length} stops saved successfully!`);
 }
+
+let currentManagingRouteId = null;
+
+function viewRouteStopsModal(routeId) {
+  currentManagingRouteId = routeId;
+  const route = dbData.routes.find(r => r.id === routeId) || { route_code: 'R-101', route_name: 'Route' };
+  
+  document.getElementById('view-route-title').textContent = `Route: ${route.route_code} — ${route.route_name}`;
+  document.getElementById('quick-stop-route-id').value = routeId;
+
+  // Filter stops for this route
+  const routeStops = dbData.stops
+    .filter(s => s.route_id === routeId || s.route === route.route_code || s.route_code === route.route_code)
+    .sort((a, b) => (a.sequence_no || a.seq || 0) - (b.sequence_no || b.seq || 0));
+
+  const tbody = document.getElementById('view-route-stops-tbody');
+  if (routeStops.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:16px;">No stops added yet for this route. Add one below!</td></tr>';
+  } else {
+    tbody.innerHTML = routeStops.map(s => `
+      <tr>
+        <td><strong>#${s.sequence_no || s.seq || 1}</strong></td>
+        <td><strong>${s.stop_name || s.name}</strong></td>
+        <td>${s.distance_km || s.dist || 0} km</td>
+        <td style="font-size:0.75rem; color:var(--text-muted);">${s.lat}, ${s.lng}</td>
+        <td><button class="btn btn-danger btn-sm" style="padding:4px 8px; font-size:0.75rem;" onclick="deleteStopFromRouteView('${s.id}')">Delete</button></td>
+      </tr>
+    `).join('');
+  }
+
+  openModal('modal-route-stops-view');
+}
+
+async function saveQuickStopToRoute() {
+  const routeId = document.getElementById('quick-stop-route-id').value;
+  const name    = document.getElementById('quick-stop-name').value.trim();
+  const dist    = parseFloat(document.getElementById('quick-stop-dist').value) || 0;
+  const lat     = parseFloat(document.getElementById('quick-stop-lat').value) || 22.4586;
+  const lng     = parseFloat(document.getElementById('quick-stop-lng').value) || 86.9931;
+
+  if (!name) {
+    alert('Please enter Stop Name');
+    return;
+  }
+
+  const existingStops = dbData.stops.filter(s => s.route_id === routeId || s.route === routeId || s.route_code === routeId);
+  const nextSeq = existingStops.length + 1;
+
+  if (supabaseClient && isValidUUID(routeId)) {
+    try {
+      const { error } = await supabaseClient.from('stops').insert([{
+        route_id: routeId,
+        stop_name: name,
+        sequence_no: nextSeq,
+        distance_km: dist,
+        lat: lat,
+        lng: lng
+      }]);
+      if (error) {
+        alert('Error saving stop: ' + error.message);
+        return;
+      }
+      logTerminal(`[SUCCESS] Added stop "${name}" to route.`);
+    } catch(e){}
+  }
+
+  document.getElementById('quick-stop-name').value = '';
+  document.getElementById('quick-stop-dist').value = '';
+
+  if (supabaseClient) {
+    await loadDataFromSupabase();
+  } else {
+    dbData.stops.push({
+      id: 'stop-' + Date.now(),
+      route_id: routeId,
+      sequence_no: nextSeq,
+      seq: nextSeq,
+      stop_name: name,
+      name: name,
+      distance_km: dist,
+      dist: dist,
+      lat: lat,
+      lng: lng
+    });
+    updateStatsAndTables();
+  }
+
+  viewRouteStopsModal(routeId);
+}
+
+async function deleteStopFromRouteView(stopId) {
+  if (!confirm('Delete this stop?')) return;
+  await deleteStop(stopId);
+  if (currentManagingRouteId) {
+    viewRouteStopsModal(currentManagingRouteId);
+  }
+}
+
+// Global window bindings
+window.autoGenerateRouteName = autoGenerateRouteName;
+window.addIntermediateStopRow = addIntermediateStopRow;
+window.updateIntermediateSeq = updateIntermediateSeq;
+window.saveRouteWithStops = saveRouteWithStops;
+window.viewRouteStopsModal = viewRouteStopsModal;
+window.saveQuickStopToRoute = saveQuickStopToRoute;
+window.deleteStopFromRouteView = deleteStopFromRouteView;
 
 async function saveStop() {
   let routeId = document.getElementById('stop-route-select').value;
