@@ -659,16 +659,16 @@
 
   <!-- Action Buttons -->
   <div class="action-buttons">
-    <button class="btn-start" id="btn-start" onclick="startTrip()">
+    <button class="btn-start" id="btn-start">
       ▶ Start Trip
     </button>
-    <button class="btn-stop" id="btn-stop" onclick="stopTrip()" style="display:none;">
+    <button class="btn-stop" id="btn-stop" style="display:none;">
       ⏹ End Trip
     </button>
   </div>
 
-  <!-- Background Tracking Banner (shown when trip active) -->
-  <div id="bg-tracking-banner" style="display:none; background: linear-gradient(135deg,#064e3b,#065f46); color:#ffffff; border-radius:14px; padding:12px 16px; margin:0 16px 12px; display:none; flex-direction:column; gap:6px;">
+  <!-- Background Tracking Banner -->
+  <div id="bg-tracking-banner" style="background: linear-gradient(135deg,#064e3b,#065f46); color:#ffffff; border-radius:14px; padding:12px 16px; margin:0 16px 12px; flex-direction:column; gap:6px; display:none;">
     <div style="display:flex; align-items:center; gap:10px;">
       <span style="font-size:1.2rem;">📡</span>
       <div>
@@ -685,7 +685,7 @@
 
   <!-- Logout -->
   <div class="btn-logout">
-    <button type="button" id="btn-logout-trigger" onclick="handleLogout()">
+    <button type="button" id="btn-logout-trigger">
       🚪 Logout / লগআউট
     </button>
   </div>
@@ -1733,22 +1733,22 @@ async function saveDriverNewStop() {
   alert(`✅ নতুন স্টপ "${name}" (${distKm.toFixed(1)} km from 1st stop) সফলভাবে রুটে যোগ করা হয়েছে!`);
 }
 
-window.handleLogout = function() {
+function handleLogout() {
   const modal = document.getElementById('modal-logout');
   if (modal) {
     modal.classList.add('active');
   } else {
-    window.confirmLogout();
+    confirmLogout();
   }
-};
+}
 
-window.closeLogoutModal = function() {
+function closeLogoutModal() {
   const modal = document.getElementById('modal-logout');
   if (modal) modal.classList.remove('active');
-};
+}
 
-window.confirmLogout = function() {
-  window.closeLogoutModal();
+function confirmLogout() {
+  closeLogoutModal();
   stopTrip();
   try {
     localStorage.removeItem('driver_session');
@@ -1759,7 +1759,7 @@ window.confirmLogout = function() {
   rawBaseStops = [];
   lastPassedStopSeq = 0;
   showScreen('screen-login');
-};
+}
 
 // ════════════════════════════════════════════════════════════
 // BACKGROUND GPS TRACKING — Service Worker + Wake Lock
