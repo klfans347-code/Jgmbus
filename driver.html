@@ -1015,7 +1015,7 @@ async function handleLogin() {
     // Query bus by driver_code OR bus_number (case-insensitive)
     const { data: buses, error: busErr } = await supabaseClient
       .from('buses')
-      .select('id, bus_number, route_id, operator_id, driver_code, driver_password, status')
+      .select('*')
       .or(`driver_code.ilike.${code},bus_number.ilike.${code}`)
       .limit(1);
 
