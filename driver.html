@@ -936,6 +936,7 @@ function restoreDriverSession() {
           if (bRev) { bRev.disabled = false; bRev.removeAttribute('disabled'); bRev.style.opacity = '1'; bRev.style.cursor = 'pointer'; }
           if (badge) badge.style.display = 'none';
         }
+        attachButtonListeners();
         return true;
       }
     }
@@ -1124,9 +1125,13 @@ async function handleLogin() {
     // Offline / demo password check
     if (password === '1234') {
       driverData = fallback;
-      routeStops = ROUTE_STOPS_FALLBACK['R-101'];
+      rawBaseStops = [...ROUTE_STOPS_FALLBACK['R-101'].stops];
+      currentTripDirection = 'forward';
+      applyTripDirection('forward');
+      saveDriverSession();
       renderTripScreen();
       showScreen('screen-trip');
+      attachButtonListeners();
       return;
     } else {
       if (errEl) {
@@ -1238,6 +1243,7 @@ async function handleLogin() {
     saveDriverSession();
     renderTripScreen();
     showScreen('screen-trip');
+    attachButtonListeners();
 
   } catch (err) {
     console.warn('Login exception:', err);
@@ -1250,6 +1256,7 @@ async function handleLogin() {
       saveDriverSession();
       renderTripScreen();
       showScreen('screen-trip');
+      attachButtonListeners();
     } else {
       if (errEl) {
         errEl.innerHTML = '❌ সার্ভার ত্রুটি / Connection error. Please try again.';
