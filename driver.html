@@ -1289,17 +1289,20 @@ function renderTripScreen() {
 }
 
 let lastPassedStopSeq = 0;
-const DISTANCE_THRESHOLD_METERS = 200; // 150-200m auto-detection threshold
+const DISTANCE_THRESHOLD_METERS = 200;
 
-function getHaversineDistanceMeters(lat1, lon1, lat2, lon2) {
-  const R = 6371000; // Earth radius in meters
+function getDistanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
             Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
             Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function getDistanceMeters(lat1, lon1, lat2, lon2) {
+  return getDistanceKm(lat1, lon1, lat2, lon2) * 1000;
 }
 
 function renderStopsList() {
@@ -1326,52 +1329,36 @@ function renderStopsList() {
   }).join('');
 }
 
-
-async function markStopReached(index) {
-  // Manual stop marking removed — GPS auto-detect handles stop progression
-}
-
-
-function startTrip() {
-  // Check Secure Context (HTTPS requirement for Geolocation)
-  if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-    console.warn('Warning: Geolocation API requires HTTPS or localhost in modern browsers.');
-  }
-
-  // Ensure initial lat/lng exists
+async function startTrip() {
   if (!driverData.latestLat && routeStops.length > 0) {
     driverData.latestLat = routeStops[0].lat;
     driverData.latestLng = routeStops[0].lng;
   }
 
-  if (!navigator.geolocation) {
-    document.getElementById('gps-coords').textContent = '⚠️ GPS API Not Supported in this browser';
-  } else {
+  if (navigator.geolocation) {
     document.getElementById('gps-coords').textContent = '📡 Requesting GPS access...';
     gpsWatchId = navigator.geolocation.watchPosition(
       pos => {
         driverData.latestLat = pos.coords.latitude;
         driverData.latestLng = pos.coords.longitude;
         document.getElementById('gps-coords').textContent = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
-        console.log(`[GPS Watch] Position acquired: ${pos.coords.latitude}, ${pos.coords.longitude}`);
         uploadLocation();
       },
       err => {
         console.warn('GPS watch error:', err);
         let msg = 'GPS Permission Pending';
-        if (err.code === 1) msg = 'GPS Access Denied by User';
+        if (err.code === 1) msg = 'GPS Access Denied';
         else if (err.code === 2) msg = 'GPS Position Unavailable';
-        else if (err.code === 3) msg = 'GPS Timeout - Retrying...';
+        else if (err.code === 3) msg = 'GPS Timeout';
         document.getElementById('gps-coords').textContent = msg;
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
+  } else {
+    document.getElementById('gps-coords').textContent = '⚠️ GPS API Not Supported';
   }
 
-  // Perform immediate initial location upload
   uploadLocation();
-
-  // Schedule regular updates
   if (uploadInterval) clearInterval(uploadInterval);
   uploadInterval = setInterval(uploadLocation, 6000);
 
@@ -1380,26 +1367,45 @@ function startTrip() {
   document.getElementById('btn-stop').style.display = 'flex';
   document.getElementById('stops-section').style.display = 'block';
 
-  // Lock Route & Direction Selector during active trip
+  // Lock selectors during active trip
   const rSel = document.getElementById('driver-route-select');
   const bFwd = document.getElementById('btn-dir-forward');
   const bRev = document.getElementById('btn-dir-reverse');
   const badge = document.getElementById('route-lock-badge');
-
   if (rSel) rSel.disabled = true;
   if (bFwd) { bFwd.disabled = true; bFwd.style.opacity = '0.6'; bFwd.style.cursor = 'not-allowed'; }
   if (bRev) { bRev.disabled = true; bRev.style.opacity = '0.6'; bRev.style.cursor = 'not-allowed'; }
   if (badge) badge.style.display = 'inline-block';
 
   const box = document.getElementById('trip-status-box');
-  box.className = 'status-inner sharing';
-  box.innerHTML = `
-    <span class="status-icon">🟢</span>
-    <div class="status-label">Trip in Progress — Auto-Detecting Stops</div>
-    <div class="status-sub">GPS position auto-detecting passed stops within 200m</div>
-  `;
+  if (box) {
+    box.className = 'status-inner sharing';
+    box.innerHTML = `
+      <span class="status-icon">🟢</span>
+      <div class="status-label">Trip in Progress — Auto-Detecting Stops</div>
+      <div class="status-sub">GPS position auto-detecting passed stops within 200m</div>
+    `;
+  }
   document.getElementById('gps-dot').className = 'gps-dot active';
   document.getElementById('gps-text').textContent = 'GPS: Auto-Detecting Live';
+
+  try {
+    localStorage.setItem('driver_trip_active', 'true');
+    saveDriverSession();
+  } catch(e){}
+
+  // Background Tracking & Wake Lock
+  const banner = document.getElementById('bg-tracking-banner');
+  if (banner) banner.style.display = 'flex';
+  const swEl = document.getElementById('bg-sw-status');
+  if (swEl) swEl.textContent = '⚙️ SW: Active ✓';
+  const notifEl = document.getElementById('bg-notif-status');
+  if (notifEl) notifEl.textContent = Notification.permission === 'granted' ? '🔔 Notification: ON ✓' : '🔔 Notification: OFF';
+
+  await acquireWakeLock();
+  const wlEl = document.getElementById('bg-wakelock-status');
+  if (wlEl) wlEl.textContent = wakeLock ? '🔆 Wake Lock: ON ✓' : '🔆 Wake Lock: Off';
+  notifySWTripStart();
 }
 
 function stopTrip() {
@@ -1412,9 +1418,15 @@ function stopTrip() {
     uploadInterval = null;
   }
 
+  isTripRunning = false;
   lastPassedStopSeq = 0;
 
-  // Broadcast trip completed status
+  try {
+    localStorage.removeItem('driver_trip_active');
+    localStorage.setItem('driver_trip_active', 'false');
+    saveDriverSession();
+  } catch(e){}
+
   if (driverData) {
     const payload = {
       bus_id: driverData.bus_id,
@@ -1437,20 +1449,9 @@ function stopTrip() {
         last_passed_stop_sequence: 0,
         updated_at: payload.updated_at,
         trip_status: 'completed'
-      }, { onConflict: 'bus_id' }).then(({ error }) => {
-        if (error) console.error('Supabase trip end error:', error);
-      });
+      }, { onConflict: 'bus_id' }).then(() => {});
     }
   }
-
-  isTripRunning = false;
-  lastPassedStopSeq = 0;
-
-  try {
-    localStorage.removeItem('driver_trip_active');
-    localStorage.setItem('driver_trip_active', 'false');
-    saveDriverSession();
-  } catch(e){}
 
   const btnStart = document.getElementById('btn-start');
   const btnStop = document.getElementById('btn-stop');
@@ -1458,34 +1459,15 @@ function stopTrip() {
   if (btnStop) btnStop.style.display = 'none';
   renderStopsList();
 
-  // Unlock Route & Direction Selector when trip ends
+  // Unlock selectors
   const rSelEnd = document.getElementById('driver-route-select');
   const bFwdEnd = document.getElementById('btn-dir-forward');
   const bRevEnd = document.getElementById('btn-dir-reverse');
   const badgeEnd = document.getElementById('route-lock-badge');
-
-  if (rSelEnd) {
-    rSelEnd.disabled = false;
-    rSelEnd.removeAttribute('disabled');
-    rSelEnd.style.pointerEvents = 'auto';
-  }
-  if (bFwdEnd) {
-    bFwdEnd.disabled = false;
-    bFwdEnd.removeAttribute('disabled');
-    bFwdEnd.style.opacity = '1';
-    bFwdEnd.style.cursor = 'pointer';
-    bFwdEnd.style.pointerEvents = 'auto';
-  }
-  if (bRevEnd) {
-    bRevEnd.disabled = false;
-    bRevEnd.removeAttribute('disabled');
-    bRevEnd.style.opacity = '1';
-    bRevEnd.style.cursor = 'pointer';
-    bRevEnd.style.pointerEvents = 'auto';
-  }
-  if (badgeEnd) {
-    badgeEnd.style.display = 'none';
-  }
+  if (rSelEnd) { rSelEnd.disabled = false; rSelEnd.removeAttribute('disabled'); rSelEnd.style.pointerEvents = 'auto'; }
+  if (bFwdEnd) { bFwdEnd.disabled = false; bFwdEnd.removeAttribute('disabled'); bFwdEnd.style.opacity = '1'; bFwdEnd.style.cursor = 'pointer'; }
+  if (bRevEnd) { bRevEnd.disabled = false; bRevEnd.removeAttribute('disabled'); bRevEnd.style.opacity = '1'; bRevEnd.style.cursor = 'pointer'; }
+  if (badgeEnd) badgeEnd.style.display = 'none';
 
   const box = document.getElementById('trip-status-box');
   if (box) {
@@ -1503,22 +1485,10 @@ function stopTrip() {
   const distBar = document.getElementById('gps-live-distance-bar');
   if (distBar) distBar.style.display = 'none';
 
-  // Release background tracking & wake lock
   releaseWakeLock();
   notifySWTripStop();
   const banner = document.getElementById('bg-tracking-banner');
   if (banner) banner.style.display = 'none';
-}
-
-function getHaversineDistanceKm(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Earth radius in km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
 }
 
 async function uploadLocation() {
@@ -1527,42 +1497,38 @@ async function uploadLocation() {
   const lat = Number(driverData.latestLat) || 22.4586;
   const lng = Number(driverData.latestLng) || 86.9931;
 
-  // AUTO-DETECT STOP LOGIC (Haversine distance within 200m threshold)
-  let newlyDetectedStop = null;
+  // AUTO-DETECT STOP LOGIC
   if (routeStops && routeStops.length > 0) {
     routeStops.forEach((stop, idx) => {
       const seqNo = stop.sequence_no || (idx + 1);
       const stopLat = Number(stop.lat);
       const stopLng = Number(stop.lng);
       if (!isNaN(stopLat) && !isNaN(stopLng)) {
-        const distMeters = getHaversineDistanceMeters(lat, lng, stopLat, stopLng);
+        const distMeters = getDistanceMeters(lat, lng, stopLat, stopLng);
         if (distMeters <= DISTANCE_THRESHOLD_METERS && seqNo >= lastPassedStopSeq) {
           lastPassedStopSeq = seqNo;
           currentStopIndex = seqNo;
-          newlyDetectedStop = stop.en;
-          console.log(`[Auto-Detect Stop Passed] Sequence ${seqNo}: ${stop.en} (Dist: ${distMeters.toFixed(1)}m)`);
         }
       }
     });
   }
 
-  // LIVE DISTANCE CALCULATION (from 1st stop & to next upcoming stop)
+  // LIVE DISTANCE CALCULATION
   const distBar = document.getElementById('gps-live-distance-bar');
   if (isTripRunning && routeStops && routeStops.length > 0) {
     if (distBar) distBar.style.display = 'block';
 
     const originStop = routeStops[0];
-    const distFromOrigin = getHaversineDistanceKm(Number(originStop.lat), Number(originStop.lng), lat, lng);
+    const distFromOrigin = getDistanceKm(Number(originStop.lat), Number(originStop.lng), lat, lng);
     const originEl = document.getElementById('live-dist-origin');
     if (originEl) originEl.textContent = `📏 From 1st Stop (${(originStop.en || 'Origin').split(' ')[0]}): ${distFromOrigin.toFixed(1)} km`;
 
-    // Next upcoming stop
     const nextStopIndex = routeStops.findIndex((s, idx) => (s.sequence_no || (idx + 1)) > lastPassedStopSeq);
     const nextEl = document.getElementById('live-dist-next');
     const subEl  = document.getElementById('live-dist-sub');
     if (nextStopIndex !== -1) {
       const nextStop = routeStops[nextStopIndex];
-      const distToNextM = getHaversineDistanceMeters(lat, lng, Number(nextStop.lat), Number(nextStop.lng));
+      const distToNextM = getDistanceMeters(lat, lng, Number(nextStop.lat), Number(nextStop.lng));
       const distText = distToNextM < 1000 ? `${Math.round(distToNextM)}m` : `${(distToNextM/1000).toFixed(1)}km`;
       if (nextEl) nextEl.textContent = `🎯 Next: ${(nextStop.en || 'Stop').split(' ')[0]} (${distText})`;
       if (subEl) subEl.textContent = `Live GPS tracking • Stop #${nextStop.sequence_no || (nextStopIndex+1)} approaching`;
@@ -1588,38 +1554,26 @@ async function uploadLocation() {
     current_stop_index: currentStopIndex
   };
 
-  // 1. Broadcast locally via LocalStorage & BroadcastChannel
   try {
     localStorage.setItem('live_bus_' + driverData.bus_number, JSON.stringify(locationPayload));
-    if (busBroadcastChannel) {
-      busBroadcastChannel.postMessage(locationPayload);
-    }
-  } catch (e) {
-    console.warn('Local broadcast error:', e);
-  }
+    if (busBroadcastChannel) busBroadcastChannel.postMessage(locationPayload);
+  } catch (e) {}
 
-  // 2. Broadcast to Supabase
   if (supabaseClient) {
     try {
-      const { data, error } = await supabaseClient.from('bus_locations').upsert({
+      await supabaseClient.from('bus_locations').upsert({
         bus_id: driverData.bus_id,
         lat: lat,
         lng: lng,
         last_passed_stop_sequence: lastPassedStopSeq,
         updated_at: locationPayload.updated_at,
         trip_status: 'in_progress'
-      }, { onConflict: 'bus_id' }).select();
-
-      if (error) {
-        console.error('Supabase bus_locations upsert error:', error.message, error.details, error.hint);
-        document.getElementById('gps-coords').textContent = `DB Upload Error: ${error.message}`;
-      } else {
-        console.log(`[Supabase Upload Success] Bus ${driverData.bus_number} - Passed Stop Seq: ${lastPassedStopSeq}`);
-      }
-    } catch (err) {
-      console.error('Supabase upload exception:', err);
-    }
+      }, { onConflict: 'bus_id' });
+    } catch (err) {}
   }
+
+  saveDriverSession();
+  notifySWGpsUpdate(lat, lng);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1924,96 +1878,18 @@ document.addEventListener('visibilitychange', () => {
       driverData.latestLng || 86.9931
     );
   } else {
-    // App came back to foreground
-    console.log('[BG] App visible — foreground GPS resumed');
-    // Re-acquire wake lock if released
     acquireWakeLock();
-    // Re-sync UI
     renderStopsList();
     uploadLocation();
   }
 });
 
-// ── 8. Re-acquire wake lock on page show (e.g. after alt-tab) ─
-document.addEventListener('pageshow', () => {
-  if (uploadInterval && !wakeLock) {
-    acquireWakeLock();
-  }
-});
-
-// ── 9. Request Notification Permission for persistent SW notif ─
+// ── 8. Request Notification Permission for persistent SW notif ─
 async function requestNotificationPermission() {
-  if (!('Notification' in window)) return;
-  if (Notification.permission === 'default') {
-    const result = await Notification.requestPermission();
-    console.log('[Notif] Permission:', result);
+  if ('Notification' in window && Notification.permission === 'default') {
+    await Notification.requestPermission();
   }
 }
-
-// ── PATCH: Override startTrip to add background features ─────
-const _originalStartTrip = startTrip;
-startTrip = async function() {
-  _originalStartTrip();
-
-  try {
-    localStorage.setItem('driver_trip_active', 'true');
-    saveDriverSession();
-  } catch(e){}
-
-  // Show background tracking banner
-  const banner = document.getElementById('bg-tracking-banner');
-  if (banner) banner.style.display = 'flex';
-
-  // Update SW status
-  const swEl = document.getElementById('bg-sw-status');
-  if (swEl) swEl.textContent = '⚙️ SW: Active ✓';
-
-  // Notification status
-  const notifEl = document.getElementById('bg-notif-status');
-  if (notifEl) {
-    notifEl.textContent = Notification.permission === 'granted'
-      ? '🔔 Notification: ON ✓'
-      : '🔔 Notification: OFF';
-  }
-
-  // Acquire Wake Lock and update indicator
-  await acquireWakeLock();
-  const wlEl = document.getElementById('bg-wakelock-status');
-  if (wlEl) wlEl.textContent = wakeLock ? '🔆 Wake Lock: ON ✓' : '🔆 Wake Lock: Off (not supported)';
-
-  notifySWTripStart();
-};
-
-// ── PATCH: Override stopTrip to release background features ──
-const _originalStopTrip = stopTrip;
-stopTrip = function() {
-  _originalStopTrip();
-
-  try {
-    localStorage.removeItem('driver_trip_active');
-    saveDriverSession();
-  } catch(e){}
-
-  // Hide background tracking banner
-  const banner = document.getElementById('bg-tracking-banner');
-  if (banner) banner.style.display = 'none';
-
-  releaseWakeLock();
-  notifySWTripStop();
-};
-
-// ── PATCH: Override uploadLocation to also notify SW ─────────
-const _originalUploadLocation = uploadLocation;
-uploadLocation = async function() {
-  await _originalUploadLocation();
-  if (driverData) {
-    saveDriverSession();
-    notifySWGpsUpdate(
-      driverData.latestLat || 22.4586,
-      driverData.latestLng || 86.9931
-    );
-  }
-};
 
 // Global Window Method Bindings for Inline HTML Callbacks
 window.startTrip = startTrip;
