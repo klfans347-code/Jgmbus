@@ -863,8 +863,15 @@ function saveDriverSession() {
       rawBaseStops: rawBaseStops,
       currentTripDirection: currentTripDirection,
       allAvailableRoutes: allAvailableRoutes,
-      lastPassedStopSeq: lastPassedStopSeq
+      lastPassedStopSeq: lastPassedStopSeq,
+      isTripActive: isTripRunning === true
     }));
+    if (isTripRunning) {
+      localStorage.setItem('driver_trip_active', 'true');
+    } else {
+      localStorage.removeItem('driver_trip_active');
+      localStorage.setItem('driver_trip_active', 'false');
+    }
   } catch(e){}
 }
 
@@ -883,13 +890,49 @@ function restoreDriverSession() {
         
         renderTripScreen();
         showScreen('screen-trip');
-        console.log('[Session] Restored active driver session for bus:', driverData.bus_number);
+        console.log('[Session] Restored driver session for bus:', driverData.bus_number);
 
-        // If trip was active before page reload/refresh, automatically resume tracking!
-        const wasActive = localStorage.getItem('driver_trip_active') === 'true';
+        // Check if trip was explicitly running before page reload/refresh
+        const wasActive = parsed.isTripActive === true && localStorage.getItem('driver_trip_active') === 'true';
         if (wasActive) {
-          console.log('[Session] Auto-resuming active trip...');
+          console.log('[Session] Resuming active trip...');
           startTrip();
+        } else {
+          // Trip was ended or idle — ensure idle UI state!
+          isTripRunning = false;
+          localStorage.removeItem('driver_trip_active');
+          localStorage.setItem('driver_trip_active', 'false');
+
+          const btnStart = document.getElementById('btn-start');
+          const btnStop  = document.getElementById('btn-stop');
+          if (btnStart) btnStart.style.display = 'flex';
+          if (btnStop)  btnStop.style.display = 'none';
+
+          const box = document.getElementById('trip-status-box');
+          if (box) {
+            box.className = 'status-inner idle';
+            box.innerHTML = `
+              <span class="status-icon">⏸</span>
+              <div class="status-label">Trip Not Started</div>
+              <div class="status-sub">Tap "Start Trip" to begin location & stop sharing</div>
+            `;
+          }
+          const gpsDot = document.getElementById('gps-dot');
+          if (gpsDot) gpsDot.className = 'gps-dot';
+          const gpsText = document.getElementById('gps-text');
+          if (gpsText) gpsText.textContent = 'GPS: Not Active';
+          const distBar = document.getElementById('gps-live-distance-bar');
+          if (distBar) distBar.style.display = 'none';
+
+          // Unlock selectors
+          const rSel = document.getElementById('driver-route-select');
+          const bFwd = document.getElementById('btn-dir-forward');
+          const bRev = document.getElementById('btn-dir-reverse');
+          const badge = document.getElementById('route-lock-badge');
+          if (rSel) { rSel.disabled = false; rSel.removeAttribute('disabled'); rSel.style.pointerEvents = 'auto'; }
+          if (bFwd) { bFwd.disabled = false; bFwd.removeAttribute('disabled'); bFwd.style.opacity = '1'; bFwd.style.cursor = 'pointer'; }
+          if (bRev) { bRev.disabled = false; bRev.removeAttribute('disabled'); bRev.style.opacity = '1'; bRev.style.cursor = 'pointer'; }
+          if (badge) badge.style.display = 'none';
         }
         return true;
       }
@@ -1401,6 +1444,14 @@ function stopTrip() {
   }
 
   isTripRunning = false;
+  lastPassedStopSeq = 0;
+
+  try {
+    localStorage.removeItem('driver_trip_active');
+    localStorage.setItem('driver_trip_active', 'false');
+    saveDriverSession();
+  } catch(e){}
+
   const btnStart = document.getElementById('btn-start');
   const btnStop = document.getElementById('btn-stop');
   if (btnStart) btnStart.style.display = 'flex';
@@ -1437,14 +1488,26 @@ function stopTrip() {
   }
 
   const box = document.getElementById('trip-status-box');
-  box.className = 'status-inner idle';
-  box.innerHTML = `
-    <span class="status-icon">⏸</span>
-    <div class="status-label">Trip Ended</div>
-    <div class="status-sub">Tap "Start Trip" to begin a new journey</div>
-  `;
-  document.getElementById('gps-dot').className = 'gps-dot';
-  document.getElementById('gps-text').textContent = 'GPS: Stopped';
+  if (box) {
+    box.className = 'status-inner idle';
+    box.innerHTML = `
+      <span class="status-icon">⏸</span>
+      <div class="status-label">Trip Ended</div>
+      <div class="status-sub">Tap "Start Trip" to begin a new journey</div>
+    `;
+  }
+  const gpsDot = document.getElementById('gps-dot');
+  if (gpsDot) gpsDot.className = 'gps-dot';
+  const gpsText = document.getElementById('gps-text');
+  if (gpsText) gpsText.textContent = 'GPS: Stopped';
+  const distBar = document.getElementById('gps-live-distance-bar');
+  if (distBar) distBar.style.display = 'none';
+
+  // Release background tracking & wake lock
+  releaseWakeLock();
+  notifySWTripStop();
+  const banner = document.getElementById('bg-tracking-banner');
+  if (banner) banner.style.display = 'none';
 }
 
 function getHaversineDistanceKm(lat1, lon1, lat2, lon2) {
