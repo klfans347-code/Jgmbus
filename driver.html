@@ -619,9 +619,14 @@
   <!-- Stop Marking Section (Driver Feature 1) -->
   <div class="stops-section" id="stops-section" style="display:none;">
     <div class="stops-card">
-      <div class="stops-card-title">
-        <span>📍 Route Stops Progress <small style="font-weight:400;color:var(--text-muted);">/ স্টপ মার্ক করুন</small></span>
-        <span style="font-size:0.75rem;color:var(--primary);" id="current-stop-status">Stop 1 of 5</span>
+      <div class="stops-card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div>
+          <span>📍 Route Stops Progress <small style="font-weight:400;color:var(--text-muted);">/ স্টপ লিস্ট</small></span>
+          <div style="font-size:0.75rem;color:var(--primary); font-weight:700; margin-top:2px;" id="current-stop-status">Stop 1 of 5</div>
+        </div>
+        <button type="button" onclick="openDriverAddStopModal()" style="padding:6px 12px; background:var(--primary-light); color:var(--primary); border:1.5px solid var(--primary); border-radius:8px; font-weight:700; font-size:0.78rem; cursor:pointer; display:flex; align-items:center; gap:4px;">
+          ➕ Add Stop / নতুন স্টপ
+        </button>
       </div>
       <div id="driver-stops-list">
         <!-- Rendered by JS -->
@@ -629,13 +634,23 @@
     </div>
   </div>
 
-  <!-- GPS Status Card -->
+  <!-- GPS Status Card & Live Distance Meter -->
   <div class="gps-card">
-    <div class="gps-inner">
-      <span class="gps-dot" id="gps-dot"></span>
-      <div>
-        <div id="gps-text" style="font-weight:600;color:var(--text-main);">GPS: Not Active</div>
-        <div id="gps-coords" style="margin-top:2px;">Waiting for trip start...</div>
+    <div class="gps-inner" style="flex-direction:column; align-items:stretch; gap:10px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="gps-dot" id="gps-dot"></span>
+        <div style="flex:1;">
+          <div id="gps-text" style="font-weight:700;color:var(--text-main); font-size:0.9rem;">GPS: Not Active</div>
+          <div id="gps-coords" style="margin-top:2px; font-size:0.75rem;">Waiting for trip start...</div>
+        </div>
+      </div>
+      <!-- Live Distance Meter from 1st Stop & Next Stop -->
+      <div id="gps-live-distance-bar" style="display:none; background:#f1f5f9; border-radius:8px; padding:8px 10px; font-size:0.75rem; border:1px solid var(--border);">
+        <div style="display:flex; justify-content:space-between; font-weight:700; margin-bottom:2px;">
+          <span style="color:#0284c7;" id="live-dist-origin">📏 From 1st Stop: 0.0 km</span>
+          <span style="color:#16a34a;" id="live-dist-next">🎯 Next Stop: --</span>
+        </div>
+        <div style="color:var(--text-muted); font-size:0.7rem;" id="live-dist-sub">Auto-calculating distance from 1st stop...</div>
       </div>
     </div>
   </div>
@@ -694,6 +709,69 @@
       </button>
       <button class="btn-modal-confirm" onclick="confirmLogout()">
         Yes, Logout / লগআউট
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- DRIVER ADD STOP MODAL (WITH AUTO-DISTANCE FROM 1ST STOP) -->
+<div id="modal-driver-add-stop" class="custom-modal-overlay" onclick="if(event.target===this) closeDriverAddStopModal();">
+  <div class="custom-modal-card" style="max-width:440px; text-align:left;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+      <div>
+        <div style="font-size:1.1rem; font-weight:800; color:var(--text-main);">➕ Add New Stopage / নতুন স্টপ</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">Auto-calculated distance from 1st stopage</div>
+      </div>
+      <button type="button" onclick="closeDriverAddStopModal()" style="border:none;background:none;font-size:1.3rem;cursor:pointer;color:var(--text-muted);">✕</button>
+    </div>
+
+    <!-- Live GPS Auto-Capture Banner -->
+    <div style="background:#eff6ff; border:1.5px solid #bfdbfe; border-radius:10px; padding:10px 12px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <div style="font-size:0.8rem; font-weight:700; color:#1e40af;">📡 Live Bus GPS Position</div>
+        <div style="font-size:0.75rem; color:#3b82f6; margin-top:2px;" id="modal-live-gps-display">Lat: 22.4586, Lng: 86.9931</div>
+      </div>
+      <button type="button" onclick="captureCurrentLocationForStop()" style="background:#2563eb; color:#fff; border:none; border-radius:6px; padding:6px 10px; font-size:0.72rem; font-weight:700; cursor:pointer;">
+        📍 Use Current GPS
+      </button>
+    </div>
+
+    <!-- Stop Name Input -->
+    <div style="margin-bottom:12px;">
+      <label style="font-size:0.8rem; font-weight:700; color:var(--text-main); display:block; margin-bottom:4px;">
+        Stop Name / স্টপের নাম <span style="color:#ef4444;">*</span>
+      </label>
+      <input id="driver-add-stop-name" class="input-box" placeholder="e.g. Kalaikunda Crossing / কলাইকুণ্ডা" style="padding:10px 12px; font-size:0.9rem;" />
+    </div>
+
+    <!-- Coordinates (Lat / Lng) -->
+    <div style="display:flex; gap:8px; margin-bottom:12px;">
+      <div style="flex:1;">
+        <label style="font-size:0.75rem; font-weight:600; color:var(--text-muted); display:block; margin-bottom:2px;">Latitude</label>
+        <input id="driver-add-stop-lat" class="input-box" value="22.4586" oninput="recalcModalStopDistance()" style="padding:8px 10px; font-size:0.85rem;" />
+      </div>
+      <div style="flex:1;">
+        <label style="font-size:0.75rem; font-weight:600; color:var(--text-muted); display:block; margin-bottom:2px;">Longitude</label>
+        <input id="driver-add-stop-lng" class="input-box" value="86.9931" oninput="recalcModalStopDistance()" style="padding:8px 10px; font-size:0.85rem;" />
+      </div>
+    </div>
+
+    <!-- Auto Calculated Distance Box -->
+    <div style="background:#f0fdf4; border:1.5px solid #bbf7d0; border-radius:10px; padding:10px 12px; margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:0.8rem; font-weight:700; color:#16a34a;">📏 Auto-Calculated Distance:</span>
+        <span style="font-size:0.9rem; font-weight:800; color:#15803d;" id="modal-calc-dist-display">0.0 km</span>
+      </div>
+      <div style="font-size:0.72rem; color:#166534; margin-top:2px;" id="modal-calc-origin-name">Measured automatically from 1st stop</div>
+    </div>
+
+    <!-- Modal Actions -->
+    <div style="display:flex; gap:10px;">
+      <button type="button" class="btn-modal-cancel" onclick="closeDriverAddStopModal()" style="flex:1; padding:10px;">
+        Cancel / বাতিল
+      </button>
+      <button type="button" class="btn-modal-confirm" onclick="saveDriverNewStop()" style="flex:1.5; padding:10px; background:var(--primary); color:#fff; border-color:var(--primary);">
+        💾 Add to Route
       </button>
     </div>
   </div>
@@ -1369,6 +1447,17 @@ function stopTrip() {
   document.getElementById('gps-text').textContent = 'GPS: Stopped';
 }
 
+function getHaversineDistanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
 async function uploadLocation() {
   if (!driverData) return;
 
@@ -1392,6 +1481,34 @@ async function uploadLocation() {
         }
       }
     });
+  }
+
+  // LIVE DISTANCE CALCULATION (from 1st stop & to next upcoming stop)
+  const distBar = document.getElementById('gps-live-distance-bar');
+  if (isTripRunning && routeStops && routeStops.length > 0) {
+    if (distBar) distBar.style.display = 'block';
+
+    const originStop = routeStops[0];
+    const distFromOrigin = getHaversineDistanceKm(Number(originStop.lat), Number(originStop.lng), lat, lng);
+    const originEl = document.getElementById('live-dist-origin');
+    if (originEl) originEl.textContent = `📏 From 1st Stop (${(originStop.en || 'Origin').split(' ')[0]}): ${distFromOrigin.toFixed(1)} km`;
+
+    // Next upcoming stop
+    const nextStopIndex = routeStops.findIndex((s, idx) => (s.sequence_no || (idx + 1)) > lastPassedStopSeq);
+    const nextEl = document.getElementById('live-dist-next');
+    const subEl  = document.getElementById('live-dist-sub');
+    if (nextStopIndex !== -1) {
+      const nextStop = routeStops[nextStopIndex];
+      const distToNextM = getHaversineDistanceMeters(lat, lng, Number(nextStop.lat), Number(nextStop.lng));
+      const distText = distToNextM < 1000 ? `${Math.round(distToNextM)}m` : `${(distToNextM/1000).toFixed(1)}km`;
+      if (nextEl) nextEl.textContent = `🎯 Next: ${(nextStop.en || 'Stop').split(' ')[0]} (${distText})`;
+      if (subEl) subEl.textContent = `Live GPS tracking • Stop #${nextStop.sequence_no || (nextStopIndex+1)} approaching`;
+    } else {
+      if (nextEl) nextEl.textContent = `🏁 Destination Reached`;
+      if (subEl) subEl.textContent = `All route stops covered for this trip`;
+    }
+  } else {
+    if (distBar) distBar.style.display = 'none';
   }
 
   renderStopsList();
@@ -1440,6 +1557,152 @@ async function uploadLocation() {
       console.error('Supabase upload exception:', err);
     }
   }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DRIVER ADD STOP WITH AUTO-DISTANCE CALCULATION FROM 1ST STOP
+═══════════════════════════════════════════════════════════ */
+function openDriverAddStopModal() {
+  const modal = document.getElementById('modal-driver-add-stop');
+  if (!modal) return;
+
+  const lat = driverData?.latestLat || (routeStops.length > 0 ? routeStops[0].lat : 22.4586);
+  const lng = driverData?.latestLng || (routeStops.length > 0 ? routeStops[0].lng : 86.9931);
+
+  document.getElementById('driver-add-stop-lat').value = Number(lat).toFixed(5);
+  document.getElementById('driver-add-stop-lng').value = Number(lng).toFixed(5);
+  document.getElementById('modal-live-gps-display').textContent = `Lat: ${Number(lat).toFixed(5)}, Lng: ${Number(lng).toFixed(5)}`;
+  document.getElementById('driver-add-stop-name').value = '';
+
+  recalcModalStopDistance();
+  modal.classList.add('active');
+}
+
+function captureCurrentLocationForStop() {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        if (driverData) {
+          driverData.latestLat = lat;
+          driverData.latestLng = lng;
+        }
+        document.getElementById('driver-add-stop-lat').value = lat.toFixed(5);
+        document.getElementById('driver-add-stop-lng').value = lng.toFixed(5);
+        document.getElementById('modal-live-gps-display').textContent = `Lat: ${lat.toFixed(5)}, Lng: ${lng.toFixed(5)} ✓ (Captured Live)`;
+        recalcModalStopDistance();
+      },
+      err => {
+        console.warn('GPS capture error:', err);
+        recalcModalStopDistance();
+      },
+      { enableHighAccuracy: true, timeout: 5000 }
+    );
+  }
+}
+
+function recalcModalStopDistance() {
+  const lat = parseFloat(document.getElementById('driver-add-stop-lat').value);
+  const lng = parseFloat(document.getElementById('driver-add-stop-lng').value);
+
+  if (routeStops && routeStops.length > 0) {
+    const originStop = routeStops[0];
+    const originLat = Number(originStop.lat);
+    const originLng = Number(originStop.lng);
+
+    if (!isNaN(lat) && !isNaN(lng) && !isNaN(originLat) && !isNaN(originLng)) {
+      const distKm = getHaversineDistanceKm(originLat, originLng, lat, lng);
+      document.getElementById('modal-calc-dist-display').textContent = `${distKm.toFixed(1)} km`;
+      document.getElementById('modal-calc-origin-name').textContent = `Calculated automatically from 1st stop (${originStop.en})`;
+      return distKm;
+    }
+  }
+  document.getElementById('modal-calc-dist-display').textContent = '0.0 km';
+  return 0;
+}
+
+function closeDriverAddStopModal() {
+  const modal = document.getElementById('modal-driver-add-stop');
+  if (modal) modal.classList.remove('active');
+}
+
+async function saveDriverNewStop() {
+  const name = document.getElementById('driver-add-stop-name').value.trim();
+  const lat  = parseFloat(document.getElementById('driver-add-stop-lat').value);
+  const lng  = parseFloat(document.getElementById('driver-add-stop-lng').value);
+
+  if (!name) {
+    alert('Please enter a Stop Name / অনুগ্রহ করে স্টপের নাম লিখুন');
+    return;
+  }
+  if (isNaN(lat) || isNaN(lng)) {
+    alert('Please provide valid Lat/Lng coordinates / সঠিক লোকেশন দিন');
+    return;
+  }
+
+  const distKm = recalcModalStopDistance();
+
+  // Create new stop object
+  const newStop = {
+    key: name.toLowerCase().replace(/\s+/g, ''),
+    en: name,
+    bn: name,
+    lat: lat,
+    lng: lng,
+    dist: `${distKm.toFixed(1)} km`,
+    distance_km: parseFloat(distKm.toFixed(1))
+  };
+
+  // Find proper position based on distance from origin
+  let insertIndex = routeStops.length - 1; // Default before destination
+  if (insertIndex < 1) insertIndex = routeStops.length;
+  for (let i = 1; i < routeStops.length; i++) {
+    const prevDist = parseFloat(routeStops[i].dist) || (i * 10);
+    if (distKm < prevDist) {
+      insertIndex = i;
+      break;
+    }
+  }
+
+  // Insert into routeStops
+  routeStops.splice(insertIndex, 0, newStop);
+  // Re-sequence
+  routeStops.forEach((s, idx) => {
+    s.sequence_no = idx + 1;
+  });
+
+  // Also update rawBaseStops
+  if (rawBaseStops) {
+    rawBaseStops = [...routeStops];
+  }
+
+  // If Supabase is connected and we have bus_id, insert to Supabase DB
+  if (supabaseClient && driverData && driverData.bus_id) {
+    try {
+      const { data: bData } = await supabaseClient.from('buses').select('route_id').eq('id', driverData.bus_id).limit(1);
+      const rId = bData && bData[0] ? bData[0].route_id : null;
+      if (rId) {
+        await supabaseClient.from('stops').insert([{
+          route_id: rId,
+          stop_name: name,
+          sequence_no: newStop.sequence_no,
+          distance_km: newStop.distance_km,
+          lat: lat,
+          lng: lng
+        }]);
+        console.log('[Driver] Saved new stop to Supabase stops table:', name);
+      }
+    } catch(e){
+      console.warn('[Driver] Supabase stop insert error:', e);
+    }
+  }
+
+  saveDriverSession();
+  renderStopsList();
+  closeDriverAddStopModal();
+
+  alert(`✅ নতুন স্টপ "${name}" (${distKm.toFixed(1)} km from 1st stop) সফলভাবে রুটে যোগ করা হয়েছে!`);
 }
 
 window.handleLogout = function() {
@@ -1697,6 +1960,11 @@ window.closeLogoutModal = closeLogoutModal;
 window.confirmLogout = confirmLogout;
 window.setTripDirection = setTripDirection;
 window.handleDriverRouteChange = handleDriverRouteChange;
+window.openDriverAddStopModal = openDriverAddStopModal;
+window.captureCurrentLocationForStop = captureCurrentLocationForStop;
+window.recalcModalStopDistance = recalcModalStopDistance;
+window.closeDriverAddStopModal = closeDriverAddStopModal;
+window.saveDriverNewStop = saveDriverNewStop;
 
 // ── INIT ─────────────────────────────────────────────────────
 registerDriverSW();
