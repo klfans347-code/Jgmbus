@@ -870,6 +870,54 @@
     .wimt-stop-time-col { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
     .wimt-stop-time { font-size: 0.85rem; font-weight: 800; color: #0f172a; }
     .wimt-stop-dist { font-size: 0.72rem; font-weight: 600; color: #64748b; }
+
+    /* ─── ETA & Distance Chip ─────────────────────────── */
+    .eta-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: linear-gradient(135deg, #1e40af, #0284c7);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 5px 10px;
+      border-radius: 20px;
+      margin-top: 6px;
+      letter-spacing: 0.01em;
+      box-shadow: 0 3px 8px rgba(30,64,175,0.25);
+      animation: eta-pulse 2s infinite ease-in-out;
+    }
+    @keyframes eta-pulse {
+      0%, 100% { box-shadow: 0 3px 8px rgba(30,64,175,0.25); }
+      50% { box-shadow: 0 3px 16px rgba(30,64,175,0.45); }
+    }
+    .eta-chip-dist {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #eff6ff;
+      color: #1e40af;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 12px;
+      margin-top: 4px;
+    }
+
+    /* NEXT stop (first upcoming after current) */
+    .wimt-item.state-next {
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+      border-radius: 14px;
+      padding: 14px 12px 14px 20px;
+      border: 2px dashed #16a34a;
+      margin: 6px 0;
+    }
+    .wimt-item.state-next .wimt-stop-bullet {
+      background: #16a34a;
+      border: 3px solid #ffffff;
+      box-shadow: 0 0 0 3px rgba(22,163,74,0.25);
+    }
+    .wimt-item.state-next .wimt-stop-name-en { color: #14532d; font-weight: 800; }
   </style>
 </head>
 <body>
@@ -1095,6 +1143,29 @@ const STOPS_META = {
   medinipur:     { en: 'Medinipur Terminus',  bn: 'মেদিনীপুর টার্মিনাস',   lat: 22.4224, lng: 87.3194 },
   gopiballavpur: { en: 'Gopiballavpur Stand',bn: 'গোপীবল্লভপুর স্ট্যান্ড', lat: 21.9966, lng: 86.9788 },
 };
+
+const BUS_SPEED_KMPH = 40; // Average city bus speed
+
+// ── Haversine Distance (km) ─────────────────────────────────
+function getDistanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ── ETA Formatter ────────────────────────────────────────────
+function getETALabel(distKm) {
+  if (distKm < 0.05) return '🟢 Arriving Now';
+  const mins = Math.round((distKm / BUS_SPEED_KMPH) * 60);
+  if (mins <= 0) return '🟢 Arriving Now';
+  if (mins < 60) return `⏱ Arriving in ${mins} min`;
+  const arrival = new Date(Date.now() + mins * 60000);
+  return `⏱ Arriving at ${arrival.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+}
 
 const DUMMY_BUSES = [
   {
@@ -1464,10 +1535,17 @@ function renderStopTimeline(bus) {
   const container = document.getElementById('stop-timeline');
   if (!container || !bus || !bus.stops || bus.stops.length === 0) return;
 
-  const lastSeq = (bus.last_passed_stop_sequence !== undefined) ? Number(bus.last_passed_stop_sequence) : 0;
+  const lastSeq   = (bus.last_passed_stop_sequence !== undefined) ? Number(bus.last_passed_stop_sequence) : 0;
+  const busLat    = bus.lat ? Number(bus.lat) : null;
+  const busLng    = bus.lng ? Number(bus.lng) : null;
+
+  // Find next upcoming stop index
+  const nextStopIdx = bus.stops.findIndex((s, idx) => (s.sequence_no || (idx + 1)) > lastSeq);
+
   const originStop = bus.stops[0];
   const originMeta = STOPS_META[originStop.key] || { en: originStop.en || originStop.key, bn: originStop.bn || originStop.key };
 
+  // ── Update Status Banner ────────────────────────────────────
   const bannerText = document.getElementById('wimt-status-text');
   if (bannerText) {
     if (lastSeq === 0) {
@@ -1479,34 +1557,89 @@ function renderStopTimeline(bus) {
     } else {
       const passedStop = bus.stops.find((s, idx) => (s.sequence_no || (idx + 1)) === lastSeq) || bus.stops[lastSeq - 1] || bus.stops[0];
       const passedMeta = STOPS_META[passedStop.key] || { en: passedStop.en || passedStop.key };
-      bannerText.innerHTML = `Bus <b>${bus.busNumber}</b> crossed <b>${passedMeta.en}</b> — Live Position`;
+      // If we have GPS, show distance to next stop in banner
+      if (busLat && nextStopIdx !== -1) {
+        const ns = bus.stops[nextStopIdx];
+        const nsMeta = STOPS_META[ns.key] || { en: ns.en || ns.key };
+        const nsLat = nsMeta.lat || Number(ns.lat);
+        const nsLng = nsMeta.lng || Number(ns.lng);
+        if (nsLat && nsLng) {
+          const d = getDistanceKm(busLat, busLng, nsLat, nsLng);
+          const eta = getETALabel(d);
+          bannerText.innerHTML = `Bus <b>${bus.busNumber}</b> → Next: <b>${nsMeta.en}</b> · ${d.toFixed(1)} km · ${eta}`;
+        } else {
+          bannerText.innerHTML = `Bus <b>${bus.busNumber}</b> crossed <b>${passedMeta.en}</b> — Live Position`;
+        }
+      } else {
+        bannerText.innerHTML = `Bus <b>${bus.busNumber}</b> crossed <b>${passedMeta.en}</b> — Live Position`;
+      }
     }
   }
 
+  // ── Render Stop Items ───────────────────────────────────────
   container.innerHTML = bus.stops.map((stop, idx) => {
     const seqNo = stop.sequence_no || (idx + 1);
-    const meta = STOPS_META[stop.key] || { en: stop.en || stop.key, bn: stop.bn || stop.key };
+    const meta  = STOPS_META[stop.key] || { en: stop.en || stop.key, bn: stop.bn || stop.key };
+    const stopLat = meta.lat || Number(stop.lat) || 0;
+    const stopLng = meta.lng || Number(stop.lng) || 0;
 
     let stateClass = 'upcoming';
-    let badgeHtml = '';
-    let iconHtml = '';
+    let badgeHtml  = '';
+    let iconHtml   = '';
+    let etaHtml    = '';
 
     if (lastSeq > 0 && seqNo < lastSeq) {
+      // ── PASSED ──
       stateClass = 'passed';
-      iconHtml = '✓';
-      badgeHtml = `<span class="wimt-badge-passed">✓ Passed</span>`;
+      iconHtml   = '✓';
+      badgeHtml  = `<span class="wimt-badge-passed">✓ Passed</span>`;
+
     } else if (lastSeq > 0 && seqNo === lastSeq) {
+      // ── CURRENT (bus is here) ──
       stateClass = 'current';
-      iconHtml = '🚌';
-      badgeHtml = `<span class="wimt-badge-here">🚌 BUS IS HERE</span>`;
+      iconHtml   = '🚌';
+      badgeHtml  = `<span class="wimt-badge-here">🚌 BUS IS HERE</span>`;
+      if (busLat && stopLat) {
+        const d = getDistanceKm(busLat, busLng, stopLat, stopLng);
+        etaHtml = `<span class="eta-chip-dist">📍 ${d < 0.05 ? 'At Stop' : d.toFixed(2) + ' km from bus'}</span>`;
+      }
+
+    } else if (idx === nextStopIdx) {
+      // ── NEXT UPCOMING (first stop after current) ──
+      stateClass = 'next';
+      iconHtml   = '▶';
+      badgeHtml  = `<span style="font-size:0.7rem; color:#16a34a; font-weight:800;">⬆ Next Stop</span>`;
+      if (busLat && stopLat) {
+        const d   = getDistanceKm(busLat, busLng, stopLat, stopLng);
+        const eta = getETALabel(d);
+        etaHtml   = `
+          <span class="eta-chip">${eta}</span>
+          <span class="eta-chip-dist">📏 Bus is ${d < 1 ? Math.round(d * 1000) + 'm' : d.toFixed(1) + ' km'} away</span>
+        `;
+      } else {
+        etaHtml = `<span class="eta-chip-dist">⏳ ETA calculating...</span>`;
+      }
+
     } else if (lastSeq === 0 && seqNo === 1) {
+      // ── ORIGIN (trip not started) ──
       stateClass = 'upcoming';
-      iconHtml = '●';
-      badgeHtml = `<span style="font-size:0.7rem; color:#0284c7; font-weight:700;">Starting Point</span>`;
+      iconHtml   = '●';
+      badgeHtml  = `<span style="font-size:0.7rem; color:#0284c7; font-weight:700;">Starting Point</span>`;
+      etaHtml    = `<span class="eta-chip-dist">⏳ Trip not started yet</span>`;
+
     } else {
+      // ── FUTURE UPCOMING ──
       stateClass = 'upcoming';
-      iconHtml = '';
-      badgeHtml = `<span style="font-size:0.7rem; color:#64748b;">Upcoming</span>`;
+      iconHtml   = '';
+      // Show distance from bus GPS if available
+      if (busLat && stopLat) {
+        const d   = getDistanceKm(busLat, busLng, stopLat, stopLng);
+        const eta = getETALabel(d);
+        badgeHtml  = `<span style="font-size:0.7rem; color:#64748b;">Upcoming</span>`;
+        etaHtml    = `<span class="eta-chip-dist">📏 ${d.toFixed(1)} km · ${eta}</span>`;
+      } else {
+        badgeHtml = `<span style="font-size:0.7rem; color:#64748b;">Upcoming</span>`;
+      }
     }
 
     return `
@@ -1515,7 +1648,7 @@ function renderStopTimeline(bus) {
       <div class="wimt-stop-info">
         <div class="wimt-stop-name-en">${meta.en}</div>
         <div class="wimt-stop-name-bn">${meta.bn}</div>
-        <div style="margin-top:4px;">${badgeHtml}</div>
+        <div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:4px;">${badgeHtml}${etaHtml}</div>
       </div>
       <div class="wimt-stop-time-col">
         <div class="wimt-stop-time">${stop.arrive || 'Scheduled'}</div>
@@ -1535,8 +1668,10 @@ async function fetchLiveBusLocationFromSupabase(busNum) {
     const { data: buses } = await supabaseClient.from('buses').select('id, bus_number, bus_locations(*)').eq('bus_number', busNum).limit(1);
     if (buses && buses.length > 0 && buses[0].bus_locations) {
       const loc = Array.isArray(buses[0].bus_locations) ? buses[0].bus_locations[0] : buses[0].bus_locations;
-      if (loc && loc.last_passed_stop_sequence !== undefined && currentBus) {
-        currentBus.last_passed_stop_sequence = Number(loc.last_passed_stop_sequence);
+      if (loc && currentBus) {
+        if (loc.last_passed_stop_sequence !== undefined) currentBus.last_passed_stop_sequence = Number(loc.last_passed_stop_sequence);
+        if (loc.lat !== undefined) currentBus.lat = Number(loc.lat);
+        if (loc.lng !== undefined) currentBus.lng = Number(loc.lng);
         renderStopTimeline(currentBus);
       }
     }
@@ -1545,37 +1680,36 @@ async function fetchLiveBusLocationFromSupabase(busNum) {
   }
 }
 
+function applyLiveUpdate(data) {
+  if (!currentBus) return;
+  if (data.last_passed_stop_sequence !== undefined) currentBus.last_passed_stop_sequence = Number(data.last_passed_stop_sequence);
+  if (data.lat !== undefined) currentBus.lat = Number(data.lat);
+  if (data.lng !== undefined) currentBus.lng = Number(data.lng);
+  renderStopTimeline(currentBus);
+}
+
 function subscribeToLiveLocationUpdates(busNum) {
-  // 1. Listen to Local BroadcastChannel for instant cross-tab live sync
+  // 1. BroadcastChannel — instant cross-tab live sync
   if (window.BroadcastChannel) {
     try {
       const ch = new BroadcastChannel('citybus_live_channel');
       ch.onmessage = (event) => {
         const data = event.data;
-        if (data && data.bus_number === busNum && currentBus) {
-          if (data.last_passed_stop_sequence !== undefined) {
-            currentBus.last_passed_stop_sequence = Number(data.last_passed_stop_sequence);
-            renderStopTimeline(currentBus);
-          }
-        }
+        if (data && data.bus_number === busNum) applyLiveUpdate(data);
       };
     } catch(e){}
   }
 
-  // 2. Listen to LocalStorage events
+  // 2. LocalStorage events (cross-tab fallback)
   window.addEventListener('storage', (e) => {
     if (e.key === 'live_bus_' + busNum && e.newValue && currentBus) {
       try {
         const parsed = JSON.parse(e.newValue);
-        if (parsed.last_passed_stop_sequence !== undefined) {
-          currentBus.last_passed_stop_sequence = Number(parsed.last_passed_stop_sequence);
-          renderStopTimeline(currentBus);
-        }
+        applyLiveUpdate(parsed);
       } catch(err){}
     }
   });
-
-  // 3. Listen to Supabase Realtime DB changes
+  // 3. Supabase Realtime — instant DB change push
   if (supabaseClient) {
     if (activeSupabaseChannel) {
       try { supabaseClient.removeChannel(activeSupabaseChannel); } catch(e){}
@@ -1584,12 +1718,7 @@ function subscribeToLiveLocationUpdates(busNum) {
       .channel('public:bus_locations_' + busNum)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bus_locations' }, payload => {
         const loc = payload.new;
-        if (loc && currentBus) {
-          if (loc.last_passed_stop_sequence !== undefined) {
-            currentBus.last_passed_stop_sequence = Number(loc.last_passed_stop_sequence);
-            renderStopTimeline(currentBus);
-          }
-        }
+        if (loc && currentBus) applyLiveUpdate(loc);
       })
       .subscribe();
   }
